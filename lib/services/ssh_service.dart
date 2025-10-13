@@ -12,16 +12,16 @@ class SSHService {
   Future<SSHClient> _connect(ServerConfig server) async {
     final socket = await SSHSocket.connect(server.host, server.port);
 
-    final identities = <dynamic>[];
+    final identities = <SSHKeyPair>[];
     if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
       final keyPair = SSHKeyPair.fromPem(
         server.privateKey!,
         server.passphrase ?? '',
       );
-      if (keyPair is Iterable) {
-        identities.addAll(keyPair);
-      } else {
+      if (keyPair is SSHKeyPair) {
         identities.add(keyPair);
+      } else if (keyPair is Iterable<SSHKeyPair>) {
+        identities.addAll(keyPair);
       }
     }
 
@@ -74,8 +74,9 @@ class SSHService {
       final command =
           'journalctl -u $service --since "$sinceFormatted UTC" -o json --follow --no-pager';
       channel = await client!.execute(command);
-      final stdout = channel!.stdout
-          .transform(utf8.decoder)
+      final stdout = utf8
+          .decoder
+          .bind(channel!.stdout)
           .transform(const LineSplitter());
       subscription = stdout.listen(
         (line) {
@@ -121,7 +122,7 @@ class SSHService {
 
   Future<String> _runCommand(SSHClient client, String command) async {
     final result = await client.execute(command);
-    final output = await result.stdout.transform(utf8.decoder).join();
+    final output = await utf8.decoder.bind(result.stdout).join();
     result.close();
     return output;
   }
