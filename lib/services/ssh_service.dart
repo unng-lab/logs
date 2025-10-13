@@ -12,17 +12,24 @@ class SSHService {
   Future<SSHClient> _connect(ServerConfig server) async {
     final socket = await SSHSocket.connect(server.host, server.port);
 
-    final identity = <SSHIdentity>[
-      if (server.privateKey != null && server.privateKey!.trim().isNotEmpty)
-        ...SSHKeyPair.fromPem(server.privateKey!, passphrase: server.passphrase ?? ''),
-    ];
+    final identities = <dynamic>[];
+    if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
+      final keyPair = SSHKeyPair.fromPem(
+        server.privateKey!,
+        server.passphrase ?? '',
+      );
+      if (keyPair is Iterable) {
+        identities.addAll(keyPair);
+      } else {
+        identities.add(keyPair);
+      }
+    }
 
     return SSHClient(
       socket,
       username: server.username,
-      identities: identity.isEmpty ? null : identity,
+      identities: identities.isEmpty ? null : identities,
       onPasswordRequest: () => server.password ?? '',
-      printDebug: false,
     );
   }
 
@@ -51,13 +58,13 @@ class SSHService {
   ) {
     final controller = StreamController<LogEntry>.broadcast();
     SSHClient? client;
-    SSHChannel? channel;
+    SSHSession? channel;
     StreamSubscription<String>? subscription;
 
     Future<void> closeResources() async {
       await subscription?.cancel();
-      await channel?.close();
-      await client?.close();
+      channel?.close();
+      client?.close();
     }
 
     controller.onListen = () async {
@@ -65,10 +72,10 @@ class SSHService {
       final since = DateTime.now().subtract(Duration(days: settings.logRetentionDays));
       final sinceFormatted = DateFormat('yyyy-MM-dd HH:mm:ss').format(since.toUtc());
       final command =
-          'journalctl -u $service --since "${sinceFormatted} UTC" -o json --follow --no-pager';
+          'journalctl -u $service --since "$sinceFormatted UTC" -o json --follow --no-pager';
       channel = await client!.execute(command);
       final stdout = channel!.stdout
-          .transform(const Utf8Decoder())
+          .transform(utf8.decoder)
           .transform(const LineSplitter());
       subscription = stdout.listen(
         (line) {
@@ -114,8 +121,8 @@ class SSHService {
 
   Future<String> _runCommand(SSHClient client, String command) async {
     final result = await client.execute(command);
-    final output = await result.stdout.transform(const Utf8Decoder()).join();
-    await result.close();
+    final output = await result.stdout.transform(utf8.decoder).join();
+    result.close();
     return output;
   }
 
