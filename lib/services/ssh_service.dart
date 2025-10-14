@@ -12,19 +12,18 @@ class SSHService {
   Future<SSHClient> _connect(ServerConfig server) async {
     final socket = await SSHSocket.connect(server.host, server.port);
 
-    final identities = <SSHKeyPair>[];
+    SSHKeyPair? identity;
     if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
-      final keyPair = SSHKeyPair.fromPem(
+      identity = SSHKeyPair.fromPem(
         server.privateKey!,
         server.passphrase ?? '',
       );
-      identities.add(keyPair);
     }
 
     return SSHClient(
       socket,
       username: server.username,
-      identities: identities.isEmpty ? null : identities,
+      identity: identity,
       onPasswordRequest: () => server.password ?? '',
     );
   }
@@ -32,7 +31,7 @@ class SSHService {
   Future<List<String>> fetchServices(ServerConfig server) async {
     final client = await _connect(server);
     try {
-      final command =
+      const command =
           "systemctl list-units --type=service --state=running --no-legend --no-pager | awk '{print \$1}'";
       final result = await _runCommand(client, command);
       final services = result
