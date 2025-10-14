@@ -18,11 +18,7 @@ class SSHService {
         server.privateKey!,
         server.passphrase ?? '',
       );
-      if (keyPair is SSHKeyPair) {
-        identities.add(keyPair);
-      } else if (keyPair is Iterable<SSHKeyPair>) {
-        identities.addAll(keyPair);
-      }
+      identities.add(keyPair);
     }
 
     return SSHClient(
@@ -37,7 +33,7 @@ class SSHService {
     final client = await _connect(server);
     try {
       final command =
-          'systemctl list-units --type=service --state=running --no-legend --no-pager | awk \'{print \\$1}\'';
+          "systemctl list-units --type=service --state=running --no-legend --no-pager | awk '{print \$1}'";
       final result = await _runCommand(client, command);
       final services = result
           .split('\n')
