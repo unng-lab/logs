@@ -8,54 +8,33 @@ import '../models/app_settings.dart';
 import '../models/log_entry.dart';
 import '../models/server_config.dart';
 
-/// Provides convenience utilities for establishing SSH connections and
-/// retrieving information from remote servers.
 class SSHService {
-  /// Opens an SSH connection using the provided [server] configuration.
   Future<SSHClient> _connect(ServerConfig server) async {
     final socket = await SSHSocket.connect(server.host, server.port);
-    final identity = _buildIdentity(server);
+
+    List<SSHKeyPair>? identity;
+    if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
+      identity = SSHKeyPair.fromPem(
+        server.privateKey!,
+        server.passphrase ?? '',
+      );
+    }
 
     return SSHClient(
       socket,
       username: server.username,
-      identity: identity,
+      identities: identity,
       onPasswordRequest: () => server.password ?? '',
     );
   }
 
-  /// Builds an [SSHKeyPair] when a private key is supplied.
-  SSHKeyPair? _buildIdentity(ServerConfig server) {
-    final privateKey = server.privateKey;
-    if (privateKey == null || privateKey.trim().isEmpty) {
-      return null;
-    }
-
-    return SSHKeyPair.fromPem(
-      privateKey,
-      server.passphrase ?? '',
-    );
-  }
-
-  /// Executes the [command] and returns its standard output as a [String].
-  Future<String> _runCommand(SSHClient client, String command) async {
-    final session = await client.execute(command);
-    try {
-      final stdout = utf8.decoder.bind(session.stdout);
-      return await stdout.join();
-    } finally {
-      await session.close();
-    }
-  }
-
-  /// Retrieves a sorted list of running systemd services.
   Future<List<String>> fetchServices(ServerConfig server) async {
     final client = await _connect(server);
     try {
       const command =
           "systemctl list-units --type=service --state=running --no-legend --no-pager | awk '{print \$1}'";
-      final output = await _runCommand(client, command);
-      final services = output
+      final result = await _runCommand(client, command);
+      final services = result
           .split('\n')
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty)
@@ -63,11 +42,10 @@ class SSHService {
       services.sort();
       return services;
     } finally {
-      await client.close();
+      client.close();
     }
   }
 
-  /// Streams journalctl output for a given [service].
   Stream<LogEntry> streamLogs(
     ServerConfig server,
     String service,
@@ -75,76 +53,73 @@ class SSHService {
   ) {
     final controller = StreamController<LogEntry>.broadcast();
     SSHClient? client;
-    SSHSession? session;
+    SSHSession? channel;
     StreamSubscription<String>? subscription;
 
     Future<void> closeResources() async {
       await subscription?.cancel();
-      if (session != null) {
-        await session!.close();
-      }
-      await client?.close();
+      channel?.close();
+      client?.close();
     }
 
-    controller
-      ..onListen = () async {
-        client = await _connect(server);
-        final command = _buildJournalCommand(service, settings.logRetentionDays);
-        session = await client!.execute(command);
+    controller.onListen = () async {
+      client = await _connect(server);
+      final since = DateTime.now().subtract(Duration(days: settings.logRetentionDays));
+      final sinceFormatted = DateFormat('yyyy-MM-dd HH:mm:ss').format(since.toUtc());
+      final command =
+          'journalctl -u $service --since "$sinceFormatted UTC" -o json --follow --no-pager';
+      channel = await client!.execute(command);
+      final stdout = utf8
+          .decoder
+          .bind(channel!.stdout)
+          .transform(const LineSplitter());
+      subscription = stdout.listen(
+        (line) {
+          if (line.trim().isEmpty) {
+            return;
+          }
+          try {
+            final decoded = jsonDecode(line) as Map<String, dynamic>;
+            final entry = _mapJsonToEntry(decoded, service);
+            controller.add(entry);
+          } catch (_) {
+            // Ignore invalid JSON lines.
+          }
+        },
+        onError: controller.addError,
+        onDone: () async {
+          await closeResources();
+          if (!controller.isClosed) {
+            await controller.close();
+          }
+        },
+        cancelOnError: false,
+      );
+    };
 
-        final lines = utf8
-            .decoder
-            .bind(session!.stdout)
-            .transform(const LineSplitter());
+    controller.onCancel = () async {
+      await closeResources();
+      if (!controller.isClosed) {
+        await controller.close();
+      }
+    };
 
-        subscription = lines.listen(
-          (line) => _handleLogLine(controller, service, line),
-          onError: controller.addError,
-          onDone: () async {
-            await closeResources();
-            if (!controller.isClosed) {
-              await controller.close();
-            }
-          },
-          cancelOnError: false,
-        );
-      }
-      ..onCancel = () async {
-        await closeResources();
-        if (!controller.isClosed) {
-          await controller.close();
-        }
-      }
-      ..onPause = () => subscription?.pause()
-      ..onResume = () => subscription?.resume();
+    controller.onPause = () {
+      subscription?.pause();
+    };
+
+    controller.onResume = () {
+      subscription?.resume();
+    };
 
     return controller.stream;
   }
 
-  /// Creates the journalctl command for the provided [service].
-  String _buildJournalCommand(String service, int logRetentionDays) {
-    final since = DateTime.now().subtract(Duration(days: logRetentionDays));
-    final formatted = DateFormat('yyyy-MM-dd HH:mm:ss').format(since.toUtc());
-    return 'journalctl -u $service --since "$formatted UTC" -o json --follow --no-pager';
-  }
-
-  /// Processes a single line of journal output and pushes it to the [controller].
-  void _handleLogLine(
-    StreamController<LogEntry> controller,
-    String service,
-    String line,
-  ) {
-    if (line.trim().isEmpty) {
-      return;
-    }
-
-    try {
-      final decoded = jsonDecode(line) as Map<String, dynamic>;
-      final entry = _mapJsonToEntry(decoded, service);
-      controller.add(entry);
-    } catch (_) {
-      // Ignore malformed JSON records from journalctl.
-    }
+  Future<String> _runCommand(SSHClient client, String command) async {
+    final result = await client.execute(command);
+    final output = await utf8.decoder.bind(result.stdout).join();
+    result.close();
+    return output;
   }
 
   LogEntry _mapJsonToEntry(Map<String, dynamic> json, String service) {
@@ -154,7 +129,6 @@ class SSHService {
         ? DateTime.fromMicrosecondsSinceEpoch(timestampMicros, isUtc: true)
         : DateTime.now().toUtc();
     final severity = LogEntry.severityFromPriority(json['PRIORITY']?.toString());
-
     return LogEntry(
       timestamp: timestamp,
       message: message,
