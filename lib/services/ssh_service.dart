@@ -104,14 +104,6 @@ class SSHService {
       }
     };
 
-    controller.onPause = () {
-      subscription?.pause();
-    };
-
-    controller.onResume = () {
-      subscription?.resume();
-    };
-
     return controller.stream;
   }
 
