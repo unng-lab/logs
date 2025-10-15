@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:ssh_systemd_logs/models/log_entry.dart';
-import 'package:ssh_systemd_logs/models/server_config.dart';
-import 'package:ssh_systemd_logs/providers/app_providers.dart';
-import 'package:ssh_systemd_logs/providers/server_detail_controller.dart';
-import 'package:ssh_systemd_logs/screens/server_detail_screen.dart';
+import 'package:logs/models/log_entry.dart';
+import 'package:logs/models/server_config.dart';
+import 'package:logs/providers/app_providers.dart';
+import 'package:logs/providers/server_detail_controller.dart';
+import 'package:logs/screens/server_detail_screen.dart';
 
 void main() {
   testWidgets('shows alert snackbars and clears them', (tester) async {

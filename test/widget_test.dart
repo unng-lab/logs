@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:ssh_systemd_logs/main.dart';
-import 'package:ssh_systemd_logs/providers/app_providers.dart';
+import 'package:logs/main.dart';
+import 'package:logs/providers/app_providers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
