@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ssh_systemd_logs/models/server_config.dart';
-import 'package:ssh_systemd_logs/providers/app_providers.dart';
-import 'package:ssh_systemd_logs/screens/server_list_screen.dart';
+import 'package:logs/models/server_config.dart';
+import 'package:logs/providers/app_providers.dart';
+import 'package:logs/screens/server_list_screen.dart';
 
 void main() {
   testWidgets(
