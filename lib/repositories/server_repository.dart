@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/server_config.dart';
@@ -20,7 +18,7 @@ class ServerRepository {
 
   /// Сохраняет текущий список серверов в локальное хранилище.
   Future<void> saveServers(List<ServerConfig> servers) async {
-    final encoded = jsonEncode(servers.map((server) => server.toJson()).toList());
+    final encoded = ServerConfig.encodeList(servers);
     await _preferences.setString(_storageKey, encoded);
   }
 }
