@@ -16,10 +16,16 @@ class SettingsRepository {
   Future<AppSettings> load() async {
     final raw = _preferences.getString(_storageKey);
     if (raw == null) {
-      return const AppSettings(initialLogLines: 100);
+      return AppSettings.fromJson(null);
     }
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    return AppSettings.fromJson(decoded);
+    try {
+      final decoded = jsonDecode(raw);
+      return AppSettings.fromJson(
+        decoded is Map<String, dynamic> ? decoded : null,
+      );
+    } on FormatException {
+      return AppSettings.fromJson(null);
+    }
   }
 
   /// Сохраняет настройки в локальном хранилище.
