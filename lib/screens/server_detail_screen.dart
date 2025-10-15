@@ -122,15 +122,11 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       onChanged: (value) {
         setState(() {
           _selectedService = value;
-          _logs.clear();
         });
         if (value != null) {
           final updated = _server.copyWith(defaultService: value);
           _server = updated;
           ref.read(serverListProvider.notifier).update(updated);
-        }
-        if (value != null && settingsAsync.hasValue) {
-          _restartStream(settingsAsync.requireValue);
         }
       },
     );
@@ -140,12 +136,19 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     if (_selectedService == null) {
       return const Center(child: Text('Выберите сервис, чтобы увидеть логи.'));
     }
-    if (_logs.isEmpty) {
+    final serviceLogs =
+        _logs.where((log) => log.service == _selectedService).toList(growable: false);
+    if (serviceLogs.isEmpty) {
       return const Center(child: Text('Ждём новых записей журнала...'));
     }
     final filtered = _filter.isEmpty
-        ? _logs
-        : _logs.where((log) => log.message.toLowerCase().contains(_filter.toLowerCase())).toList();
+        ? serviceLogs
+        : serviceLogs
+            .where((log) => log.message.toLowerCase().contains(_filter.toLowerCase()))
+            .toList();
+    if (filtered.isEmpty) {
+      return const Center(child: Text('По фильтру ничего не найдено.'));
+    }
 
     return ListView.builder(
       reverse: true,
@@ -200,13 +203,12 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       _isStreaming = false;
     });
 
-    final service = _selectedService;
-    if (service == null) {
+    if (_selectedService == null || _services.isEmpty) {
       return;
     }
 
     final sshService = ref.read(sshServiceProvider);
-    final stream = sshService.streamLogs(_server, service, settings);
+    final stream = sshService.streamLogs(_server, _services, settings);
     _subscription = stream.listen(
       (event) {
         setState(() {
