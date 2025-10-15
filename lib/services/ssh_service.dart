@@ -47,13 +47,14 @@ class SSHService {
 
   Stream<LogEntry> streamLogs(
     ServerConfig server,
-    String service,
+    List<String> services,
     AppSettings settings,
   ) {
     final controller = StreamController<LogEntry>.broadcast();
     SSHClient? client;
     SSHSession? channel;
     StreamSubscription<String>? subscription;
+    final allowedServices = services.toSet();
 
     Future<void> closeResources() async {
       await subscription?.cancel();
@@ -62,10 +63,15 @@ class SSHService {
     }
 
     controller.onListen = () async {
+      if (allowedServices.isEmpty) {
+        await controller.close();
+        return;
+      }
       client = await _connect(server);
       final lines = settings.initialLogLines.clamp(1, 1000).toInt();
+      final serviceArgs = services.map((service) => '-u $service').join(' ');
       final command =
-          'journalctl -u $service -n $lines -o json --follow --no-pager';
+          'journalctl $serviceArgs -n $lines -o json --follow --no-pager';
       channel = await client!.execute(command);
       final stdout = utf8
           .decoder
@@ -78,8 +84,10 @@ class SSHService {
           }
           try {
             final decoded = jsonDecode(line) as Map<String, dynamic>;
-            final entry = _mapJsonToEntry(decoded, service);
-            controller.add(entry);
+            final entry = _mapJsonToEntry(decoded, allowedServices);
+            if (entry != null) {
+              controller.add(entry);
+            }
           } catch (_) {
             // Ignore invalid JSON lines.
           }
@@ -125,7 +133,10 @@ class SSHService {
     return output;
   }
 
-  LogEntry _mapJsonToEntry(Map<String, dynamic> json, String service) {
+  LogEntry? _mapJsonToEntry(
+    Map<String, dynamic> json,
+    Set<String> allowedServices,
+  ) {
     final message = (json['MESSAGE'] as String?) ?? '';
     final realtimeMicros = json['__REALTIME_TIMESTAMP']?.toString();
     final timestampMicros = int.tryParse(realtimeMicros ?? '');
@@ -133,6 +144,13 @@ class SSHService {
         ? DateTime.fromMicrosecondsSinceEpoch(timestampMicros, isUtc: true)
         : DateTime.now().toUtc();
     final severity = LogEntry.severityFromPriority(json['PRIORITY']?.toString());
+    final service = (json['_SYSTEMD_UNIT'] as String?) ??
+        (json['SYSTEMD_UNIT'] as String?) ??
+        (json['UNIT'] as String?) ??
+        (json['SYSLOG_IDENTIFIER'] as String?);
+    if (service == null || service.isEmpty || !allowedServices.contains(service)) {
+      return null;
+    }
     return LogEntry(
       timestamp: timestamp,
       message: message,
