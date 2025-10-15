@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/app_settings.dart';
 import '../models/log_entry.dart';
 import '../models/server_config.dart';
-import '../providers/server_detail_controller.dart';
+import '../providers/app_providers.dart';
 import '../widgets/log_entry_tile.dart';
 
 /// Аргументы для экрана детальной информации о сервере.
@@ -26,53 +29,51 @@ class ServerDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
+  final _logs = <LogEntry>[];
+  StreamSubscription<LogEntry>? _subscription;
+  List<String> _services = <String>[];
+  String? _selectedService;
+  bool _isLoadingServices = true;
+  bool _isStreaming = false;
   String _filter = '';
+  late ServerConfig _server;
 
+  /// Инициализирует состояние экрана и запускает загрузку сервисов.
   @override
   void initState() {
     super.initState();
-    final server = widget.args.server;
-    ref.listen(serverDetailControllerProvider(server), (previous, next) {
-      final prevError = previous?.valueOrNull?.errorMessage;
-      final newError = next.valueOrNull?.errorMessage;
-      if (newError != null && newError != prevError && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(newError)),
-        );
-      }
-    });
+    _server = widget.args.server;
+    // Запрашиваем список доступных сервисов сразу после открытия экрана.
+    _loadServices();
+  }
+
+  /// Очищает ресурсы потоков при закрытии экрана.
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   /// Строит основной интерфейс экрана с фильтрами и списком логов.
   @override
   Widget build(BuildContext context) {
-    final server = widget.args.server;
-    final controllerAsync = ref.watch(serverDetailControllerProvider(server));
-    final controller = ref.read(serverDetailControllerProvider(server).notifier);
-    final state = controllerAsync.valueOrNull;
-
-    if (state == null) {
-      return Scaffold(
-        appBar: AppBar(title: Text(server.name)),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    final settingsAsync = ref.watch(settingsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(server.name),
+        title: Text(_server.name),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Обновить сервисы',
-            onPressed: state.isLoadingServices ? null : controller.refreshServices,
+            onPressed: _isLoadingServices ? null : _loadServices,
           ),
           IconButton(
-            icon: Icon(state.isStreaming ? Icons.stop_circle_outlined : Icons.play_circle_outline),
-            tooltip: state.isStreaming ? 'Остановить поток' : 'Переподключиться',
-            onPressed: (state.selectedService == null || state.isLoadingServices)
+            icon: Icon(_isStreaming ? Icons.stop_circle_outlined : Icons.play_circle_outline),
+            tooltip: _isStreaming ? 'Остановить поток' : 'Переподключиться',
+            onPressed: (_selectedService == null || !settingsAsync.hasValue)
                 ? null
-                : controller.toggleStreaming,
+                : () => _restartStream(settingsAsync.requireValue),
           ),
         ],
       ),
@@ -83,10 +84,10 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${server.username}@${server.host}:${server.port}',
+                Text('${_server.username}@${_server.host}:${_server.port}',
                     style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 12),
-                _buildServiceDropdown(state, controller),
+                _buildServiceDropdown(settingsAsync),
                 const SizedBox(height: 12),
                 TextField(
                   decoration: const InputDecoration(
@@ -99,7 +100,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
             ),
           ),
           Expanded(
-            child: _buildLogList(state),
+            child: _buildLogList(),
           ),
         ],
       ),
@@ -107,17 +108,17 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
   }
 
   /// Создаёт выпадающий список сервисов или отображает состояние загрузки.
-  Widget _buildServiceDropdown(ServerDetailState state, ServerDetailController controller) {
-    if (state.isLoadingServices) {
+  Widget _buildServiceDropdown(AsyncValue<AppSettings> settingsAsync) {
+    if (_isLoadingServices) {
       return const LinearProgressIndicator();
     }
-    if (state.services.isEmpty) {
+    if (_services.isEmpty) {
       return const Text('Сервисы не найдены или доступ запрещен.');
     }
     return DropdownButtonFormField<String>(
-      value: state.selectedService,
+      initialValue: _selectedService ?? _server.defaultService,
       decoration: const InputDecoration(labelText: 'Сервис'),
-      items: state.services
+      items: _services
           .map(
             (service) => DropdownMenuItem(
               value: service,
@@ -125,29 +126,36 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
             ),
           )
           .toList(),
-      onChanged: controller.selectService,
+     onChanged: (value) {
+        setState(() {
+          _selectedService = value;
+        });
+        if (value != null) {
+          // Сохраняем выбор по умолчанию, чтобы при следующем подключении
+          // сервис подгружался автоматически.
+          final updated = _server.copyWith(defaultService: value);
+          _server = updated;
+          ref.read(serverListProvider.notifier).update(updated);
+        }
+      },
     );
   }
 
   /// Формирует список логов с учётом выбранного сервиса и текстового фильтра.
-  Widget _buildLogList(ServerDetailState state) {
-    final selectedService = state.selectedService;
-    if (selectedService == null) {
+  Widget _buildLogList() {
+    if (_selectedService == null) {
       return const Center(child: Text('Выберите сервис, чтобы увидеть логи.'));
     }
-
-    final serviceLogs = state.logs
-        .where((log) => log.service == selectedService)
-        .toList(growable: false);
+    final serviceLogs =
+        _logs.where((log) => log.service == _selectedService).toList(growable: false);
     if (serviceLogs.isEmpty) {
       return const Center(child: Text('Ждём новых записей журнала...'));
     }
-
     final filtered = _filter.isEmpty
         ? serviceLogs
         : serviceLogs
-            .where((log) => _matchesFilter(log, _filter))
-            .toList(growable: false);
+            .where((log) => log.message.toLowerCase().contains(_filter.toLowerCase()))
+            .toList();
     if (filtered.isEmpty) {
       return const Center(child: Text('По фильтру ничего не найдено.'));
     }
@@ -161,13 +169,86 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
         final entry = filtered[reversedIndex];
         return LogEntryTile(
           entry: entry,
+          // Используем индекс элемента в текущем представлении списка, чтобы
+          // зебра корректно обновлялась при поступлении новых сообщений.
           isEven: index.isEven,
         );
       },
     );
   }
 
-  bool _matchesFilter(LogEntry log, String filter) {
-    return log.message.toLowerCase().contains(filter.toLowerCase());
+  /// Загружает список systemd-сервисов на сервере и инициирует поток логов.
+  Future<void> _loadServices() async {
+    setState(() {
+      _isLoadingServices = true;
+    });
+    final server = _server;
+    try {
+      final services = await ref.read(sshServiceProvider).fetchServices(server);
+      setState(() {
+        _services = services;
+        _selectedService = server.defaultService != null && services.contains(server.defaultService)
+            ? server.defaultService
+            : (services.isNotEmpty ? services.first : null);
+      });
+      final settings = ref.read(settingsProvider).maybeWhen(data: (value) => value, orElse: () => null);
+      if (_selectedService != null && settings != null) {
+        _restartStream(settings);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось загрузить сервисы: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingServices = false;
+        });
+      }
+    }
+  }
+
+  /// Перезапускает поток логов с учётом выбранных сервисов и настроек.
+  Future<void> _restartStream(AppSettings settings) async {
+    await _subscription?.cancel();
+    _logs.clear();
+    setState(() {
+      _isStreaming = false;
+    });
+
+    if (_selectedService == null || _services.isEmpty) {
+      return;
+    }
+
+    final sshService = ref.read(sshServiceProvider);
+    final stream = sshService.streamLogs(_server, _services, settings);
+    _subscription = stream.listen(
+      (event) {
+        // Каждая новая запись добавляется в локальный список и обновляет UI.
+        setState(() {
+          _logs.add(event);
+          _isStreaming = true;
+        });
+      },
+      onError: (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка потока логов: $error')),
+          );
+        }
+        setState(() {
+          _isStreaming = false;
+        });
+      },
+      onDone: () {
+        if (mounted) {
+          setState(() {
+            _isStreaming = false;
+          });
+        }
+      },
+    );
   }
 }
