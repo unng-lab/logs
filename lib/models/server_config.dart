@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+/// Конфигурация подключения к удалённому серверу по SSH.
 class ServerConfig {
   ServerConfig({
     String? id,
@@ -23,6 +24,7 @@ class ServerConfig {
   final String? passphrase;
   final String? defaultService;
 
+  /// Создаёт копию конфигурации с возможностью переопределения полей.
   ServerConfig copyWith({
     String? id,
     String? name,
@@ -47,6 +49,7 @@ class ServerConfig {
     );
   }
 
+  /// Сериализует объект в JSON для сохранения в SharedPreferences.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -61,6 +64,7 @@ class ServerConfig {
     };
   }
 
+  /// Восстанавливает конфигурацию из JSON-структуры.
   static ServerConfig fromJson(Map<String, dynamic> json) {
     return ServerConfig(
       id: json['id'] as String?,
@@ -75,11 +79,13 @@ class ServerConfig {
     );
   }
 
+  /// Кодирует список конфигураций в строку JSON.
   static String encodeList(List<ServerConfig> servers) {
     final items = servers.map((server) => server.toJson()).toList();
     return jsonEncode(items);
   }
 
+  /// Декодирует строку JSON в список конфигураций.
   static List<ServerConfig> decodeList(String? value) {
     if (value == null || value.isEmpty) {
       return <ServerConfig>[];
@@ -90,6 +96,7 @@ class ServerConfig {
         .toList();
   }
 
+  /// Генерирует уникальный идентификатор на основе текущего времени.
   static String _generateId() {
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     return timestamp.toRadixString(16);

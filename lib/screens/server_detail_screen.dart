@@ -9,12 +9,14 @@ import '../models/server_config.dart';
 import '../providers/app_providers.dart';
 import '../widgets/log_entry_tile.dart';
 
+/// Аргументы для экрана детальной информации о сервере.
 class ServerDetailArguments {
   const ServerDetailArguments({required this.server});
 
   final ServerConfig server;
 }
 
+/// Экран просмотра журналов конкретного сервера и управления потоками.
 class ServerDetailScreen extends ConsumerStatefulWidget {
   const ServerDetailScreen({super.key, required this.args});
 
@@ -36,19 +38,23 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
   String _filter = '';
   late ServerConfig _server;
 
+  /// Инициализирует состояние экрана и запускает загрузку сервисов.
   @override
   void initState() {
     super.initState();
     _server = widget.args.server;
+    // Запрашиваем список доступных сервисов сразу после открытия экрана.
     _loadServices();
   }
 
+  /// Очищает ресурсы потоков при закрытии экрана.
   @override
   void dispose() {
     _subscription?.cancel();
     super.dispose();
   }
 
+  /// Строит основной интерфейс экрана с фильтрами и списком логов.
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsProvider);
@@ -101,6 +107,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     );
   }
 
+  /// Создаёт выпадающий список сервисов или отображает состояние загрузки.
   Widget _buildServiceDropdown(AsyncValue<AppSettings> settingsAsync) {
     if (_isLoadingServices) {
       return const LinearProgressIndicator();
@@ -119,11 +126,13 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
             ),
           )
           .toList(),
-      onChanged: (value) {
+     onChanged: (value) {
         setState(() {
           _selectedService = value;
         });
         if (value != null) {
+          // Сохраняем выбор по умолчанию, чтобы при следующем подключении
+          // сервис подгружался автоматически.
           final updated = _server.copyWith(defaultService: value);
           _server = updated;
           ref.read(serverListProvider.notifier).update(updated);
@@ -132,6 +141,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     );
   }
 
+  /// Формирует список логов с учётом выбранного сервиса и текстового фильтра.
   Widget _buildLogList() {
     if (_selectedService == null) {
       return const Center(child: Text('Выберите сервис, чтобы увидеть логи.'));
@@ -159,12 +169,15 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
         final entry = filtered[reversedIndex];
         return LogEntryTile(
           entry: entry,
-          isEven: reversedIndex.isEven,
+          // Используем индекс элемента в текущем представлении списка, чтобы
+          // зебра корректно обновлялась при поступлении новых сообщений.
+          isEven: index.isEven,
         );
       },
     );
   }
 
+  /// Загружает список systemd-сервисов на сервере и инициирует поток логов.
   Future<void> _loadServices() async {
     setState(() {
       _isLoadingServices = true;
@@ -197,6 +210,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     }
   }
 
+  /// Перезапускает поток логов с учётом выбранных сервисов и настроек.
   Future<void> _restartStream(AppSettings settings) async {
     await _subscription?.cancel();
     _logs.clear();
@@ -212,6 +226,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     final stream = sshService.streamLogs(_server, _services, settings);
     _subscription = stream.listen(
       (event) {
+        // Каждая новая запись добавляется в локальный список и обновляет UI.
         setState(() {
           _logs.add(event);
           _isStreaming = true;

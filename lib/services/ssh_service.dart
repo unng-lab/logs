@@ -7,12 +7,15 @@ import '../models/app_settings.dart';
 import '../models/log_entry.dart';
 import '../models/server_config.dart';
 
+/// Инкапсулирует работу по SSH: подключение, чтение логов и получение метрик.
 class SSHService {
+  /// Устанавливает SSH-подключение с учётом пароля и ключей.
   Future<SSHClient> _connect(ServerConfig server) async {
     final socket = await SSHSocket.connect(server.host, server.port);
 
     List<SSHKeyPair>? identity;
     if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
+      // Если указан приватный ключ, подготавливаем пару ключей для аутентификации.
       identity = SSHKeyPair.fromPem(
         server.privateKey!,
         server.passphrase ?? '',
@@ -27,6 +30,7 @@ class SSHService {
     );
   }
 
+  /// Возвращает список активных systemd-сервисов на удалённом сервере.
   Future<List<String>> fetchServices(ServerConfig server) async {
     final client = await _connect(server);
     try {
@@ -45,6 +49,7 @@ class SSHService {
     }
   }
 
+  /// Создаёт поток логов journalctl для выбранных сервисов.
   Stream<LogEntry> streamLogs(
     ServerConfig server,
     List<String> services,
@@ -56,6 +61,7 @@ class SSHService {
     StreamSubscription<String>? subscription;
     final allowedServices = services.toSet();
 
+    /// Закрывает все ассоциированные ресурсы соединения.
     Future<void> closeResources() async {
       await subscription?.cancel();
       channel?.close();
@@ -67,6 +73,7 @@ class SSHService {
         await controller.close();
         return;
       }
+      // Подключаемся по SSH и формируем команду journalctl.
       client = await _connect(server);
       final lines = settings.initialLogLines.clamp(1, 1000).toInt();
       final serviceArgs = services.map((service) => '-u $service').join(' ');
@@ -86,6 +93,7 @@ class SSHService {
             final decoded = jsonDecode(line) as Map<String, dynamic>;
             final entry = _mapJsonToEntry(decoded, allowedServices);
             if (entry != null) {
+              // Отправляем только те записи, которые относятся к выбранным сервисам.
               controller.add(entry);
             }
           } catch (_) {
@@ -113,6 +121,7 @@ class SSHService {
     return controller.stream;
   }
 
+  /// Проверяет, удаётся ли выполнить простую команду на сервере.
   Future<bool> checkConnection(ServerConfig server) async {
     SSHClient? client;
     try {
@@ -126,6 +135,7 @@ class SSHService {
     }
   }
 
+  /// Вычисляет среднюю скорость появления записей журнала за последнюю минуту.
   Future<double> fetchLogRate(ServerConfig server) async {
     SSHClient? client;
     try {
@@ -148,6 +158,7 @@ class SSHService {
     }
   }
 
+  /// Выполняет произвольную команду на сервере и возвращает её stdout.
   Future<String> _runCommand(SSHClient client, String command) async {
     final result = await client.execute(command);
     final output = await utf8.decoder.bind(result.stdout).join();
@@ -155,6 +166,7 @@ class SSHService {
     return output;
   }
 
+  /// Преобразует JSON-строку journalctl в доменную модель [LogEntry].
   LogEntry? _mapJsonToEntry(
     Map<String, dynamic> json,
     Set<String> allowedServices,

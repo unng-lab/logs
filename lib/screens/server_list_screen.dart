@@ -7,11 +7,13 @@ import 'edit_server_screen.dart';
 import 'server_detail_screen.dart';
 import 'settings_screen.dart';
 
+/// Главный экран со списком добавленных серверов и их статусами.
 class ServerListScreen extends ConsumerWidget {
   const ServerListScreen({super.key});
 
   static const routeName = '/';
 
+  /// Строит список серверов и отображает состояние загрузки или ошибок.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final serversAsync = ref.watch(serverListProvider);
@@ -99,6 +101,7 @@ class ServerListScreen extends ConsumerWidget {
     );
   }
 
+  /// Открывает экран добавления или редактирования сервера.
   void _openEditor(BuildContext context, {ServerConfig? server}) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -108,6 +111,7 @@ class ServerListScreen extends ConsumerWidget {
     );
   }
 
+  /// Переходит на экран детализации выбранного сервера.
   void _openDetail(BuildContext context, ServerConfig server) {
     Navigator.of(context).pushNamed(
       ServerDetailScreen.routeName,
@@ -115,6 +119,7 @@ class ServerListScreen extends ConsumerWidget {
     );
   }
 
+  /// Строит плитку списка для отдельного сервера с отображением статуса.
   Widget _buildServerTile(
     BuildContext context,
     ServerConfig server, {
@@ -122,6 +127,7 @@ class ServerListScreen extends ConsumerWidget {
     required Color statusColor,
     String logRateText = '',
   }) {
+    // Используем плитку списка, чтобы компактно показать ключевые атрибуты.
     return ListTile(
       leading: Icon(Icons.dns_outlined, color: statusColor),
       title: Text(server.name),
@@ -161,6 +167,7 @@ class ServerListScreen extends ConsumerWidget {
     );
   }
 
+  /// Форматирует скорость журнала в зависимости от диапазона значений.
   String _formatLogRate(double rate) {
     if (rate.isNaN || rate.isInfinite) {
       return '0';
@@ -175,11 +182,13 @@ class ServerListScreen extends ConsumerWidget {
   }
 }
 
+/// Состояние пустого списка серверов с подсказкой.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onAdd});
 
   final VoidCallback onAdd;
 
+  /// Показывает призыв к действию при отсутствии серверов.
   @override
   Widget build(BuildContext context) {
     return Center(
