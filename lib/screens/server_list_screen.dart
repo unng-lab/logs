@@ -36,23 +36,49 @@ class ServerListScreen extends ConsumerWidget {
               final server = servers[index];
               final statusAsync = ref.watch(serverStatusProvider(server));
               return statusAsync.when(
-                data: (isOnline) => _buildServerTile(
-                  context,
-                  server,
-                  statusText: isOnline ? 'Онлайн' : 'Отключен',
-                  statusColor: isOnline ? Colors.green : Colors.red,
-                ),
+                data: (isOnline) {
+                  if (!isOnline) {
+                    return _buildServerTile(
+                      context,
+                      server,
+                      statusText: 'Отключен',
+                      statusColor: Colors.red,
+                      logRateText: 'Скорость журнала: недоступна',
+                    );
+                  }
+                  final logRateAsync = ref.watch(serverLogRateProvider(server));
+                  final logRateText = logRateAsync.when(
+                    data: (rate) {
+                      if (rate <= 0) {
+                        return 'Скорость журнала: нет новых записей';
+                      }
+                      final formatted = _formatLogRate(rate);
+                      return 'Скорость журнала: ~$formatted записей/с';
+                    },
+                    loading: () => 'Скорость журнала: считаем…',
+                    error: (error, _) => 'Скорость журнала: ошибка (${error.toString()})',
+                  );
+                  return _buildServerTile(
+                    context,
+                    server,
+                    statusText: 'Онлайн',
+                    statusColor: Colors.green,
+                    logRateText: logRateText,
+                  );
+                },
                 loading: () => _buildServerTile(
                   context,
                   server,
                   statusText: 'Проверяем подключение...',
                   statusColor: Colors.orange,
+                  logRateText: 'Скорость журнала: проверяем...',
                 ),
                 error: (error, _) => _buildServerTile(
                   context,
                   server,
                   statusText: 'Ошибка проверки подключения',
                   statusColor: Colors.red,
+                  logRateText: 'Скорость журнала: недоступна',
                 ),
               );
             },
@@ -94,6 +120,7 @@ class ServerListScreen extends ConsumerWidget {
     ServerConfig server, {
     required String statusText,
     required Color statusColor,
+    String logRateText = '',
   }) {
     return ListTile(
       leading: Icon(Icons.dns_outlined, color: statusColor),
@@ -117,6 +144,13 @@ class ServerListScreen extends ConsumerWidget {
               ),
             ],
           ),
+          if (logRateText.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              logRateText,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       ),
       onTap: () => _openDetail(context, server),
@@ -125,6 +159,19 @@ class ServerListScreen extends ConsumerWidget {
         onPressed: () => _openEditor(context, server: server),
       ),
     );
+  }
+
+  String _formatLogRate(double rate) {
+    if (rate.isNaN || rate.isInfinite) {
+      return '0';
+    }
+    if (rate >= 100) {
+      return rate.toStringAsFixed(0);
+    }
+    if (rate >= 10) {
+      return rate.toStringAsFixed(1);
+    }
+    return rate.toStringAsFixed(2);
   }
 }
 

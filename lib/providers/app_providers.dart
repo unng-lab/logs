@@ -28,6 +28,11 @@ final serverStatusProvider = AutoDisposeFutureProvider.family<bool, ServerConfig
   return service.checkConnection(server);
 });
 
+final serverLogRateProvider = AutoDisposeFutureProvider.family<double, ServerConfig>((ref, server) {
+  final service = ref.watch(sshServiceProvider);
+  return service.fetchLogRate(server);
+});
+
 final serverListProvider = StateNotifierProvider<ServerListNotifier, AsyncValue<List<ServerConfig>>>(
   (ref) => ServerListNotifier(ref.watch(serverRepositoryProvider)),
 );
