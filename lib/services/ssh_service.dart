@@ -126,6 +126,28 @@ class SSHService {
     }
   }
 
+  Future<double> fetchLogRate(ServerConfig server) async {
+    SSHClient? client;
+    try {
+      client = await _connect(server);
+      const command =
+          'journalctl --since "1 minute ago" --no-pager | wc -l';
+      final rawOutput = await _runCommand(client, command);
+      final trimmed = rawOutput.trim();
+      if (trimmed.isEmpty) {
+        return 0;
+      }
+      final tokens = trimmed.split(RegExp(r'\s+'));
+      final count = int.tryParse(tokens.isNotEmpty ? tokens.last : trimmed) ?? 0;
+      if (count <= 0) {
+        return 0;
+      }
+      return count / 60.0;
+    } finally {
+      client?.close();
+    }
+  }
+
   Future<String> _runCommand(SSHClient client, String command) async {
     final result = await client.execute(command);
     final output = await utf8.decoder.bind(result.stdout).join();
