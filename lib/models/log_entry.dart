@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+/// Уровни важности записей systemd журнала.
 enum LogSeverity {
   emergency,
   alert,
@@ -11,6 +12,7 @@ enum LogSeverity {
   debug,
 }
 
+/// Модель данных одной записи журнала systemd.
 class LogEntry {
   LogEntry({
     required this.timestamp,
@@ -28,11 +30,13 @@ class LogEntry {
   final Map<String, dynamic> raw;
   final String? realtimeTimestampMicros;
 
+  /// Форматированная временная метка с точностью до секунд.
   String get formattedTimestamp {
     final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
     return formatter.format(timestamp.toLocal());
   }
 
+  /// Форматированная realtime-метка из поля `__REALTIME_TIMESTAMP`.
   String get formattedRealtimeTimestamp {
     final micros = int.tryParse(realtimeTimestampMicros ?? '');
     if (micros == null) {
@@ -44,6 +48,7 @@ class LogEntry {
     return formatter.format(realtime);
   }
 
+  /// Преобразует приоритет systemd к перечислению [LogSeverity].
   static LogSeverity severityFromPriority(String? priority) {
     switch (priority) {
       case '0':

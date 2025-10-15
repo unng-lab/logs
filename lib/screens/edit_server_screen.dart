@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/server_config.dart';
 import '../providers/app_providers.dart';
 
+/// Экран создания или редактирования конфигурации сервера.
 class EditServerScreen extends ConsumerStatefulWidget {
   const EditServerScreen({super.key, this.server});
 
@@ -13,6 +14,7 @@ class EditServerScreen extends ConsumerStatefulWidget {
   ConsumerState<EditServerScreen> createState() => _EditServerScreenState();
 }
 
+/// Содержит состояние формы редактирования сервера и связанные контроллеры.
 class _EditServerScreenState extends ConsumerState<EditServerScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _hostController;
@@ -27,6 +29,7 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
 
   bool _obscurePassword = true;
 
+  /// Заполняет поля формы данными сервера или значениями по умолчанию.
   @override
   void initState() {
     super.initState();
@@ -41,6 +44,7 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
     _defaultServiceController = TextEditingController(text: server?.defaultService ?? '');
   }
 
+  /// Освобождает ресурсы контроллеров при закрытии экрана.
   @override
   void dispose() {
     _nameController.dispose();
@@ -54,6 +58,7 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
     super.dispose();
   }
 
+  /// Строит форму редактирования с валидацией полей.
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.server != null;
@@ -149,11 +154,13 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
     );
   }
 
+  /// Сохраняет изменения и обновляет список серверов через провайдер.
   Future<void> _save(BuildContext context) async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
     final notifier = ref.read(serverListProvider.notifier);
+    // Формируем объект конфигурации, подставляя значения из формы.
     final server = (widget.server ?? ServerConfig(
       name: _nameController.text.trim(),
       host: _hostController.text.trim(),
@@ -181,6 +188,7 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
     }
   }
 
+  /// Запрашивает подтверждение и удаляет сервер при согласии пользователя.
   Future<void> _deleteServer(BuildContext context) async {
     final server = widget.server;
     if (server == null) {

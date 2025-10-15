@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../providers/app_providers.dart';
 
+/// Экран управления глобальными настройками приложения.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   static const routeName = '/settings';
 
+  /// Загружает настройки и отображает форму либо индикатор состояния.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(settingsProvider);
@@ -26,6 +28,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
+/// Форма настройки количества изначально загружаемых строк журнала.
 class _SettingsForm extends ConsumerStatefulWidget {
   const _SettingsForm({required this.settings});
 
@@ -41,6 +44,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
   static const int _step = 50;
   late double _initialLines;
 
+  /// Инициализирует положение слайдера с учётом сохранённых значений.
   @override
   void initState() {
     super.initState();
@@ -49,6 +53,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     _initialLines = snapped.toDouble();
   }
 
+  /// Отрисовывает форму слайдера и описаниями.
   @override
   Widget build(BuildContext context) {
     final notifier = ref.read(settingsProvider.notifier);
@@ -69,6 +74,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           label: '${_initialLines.round()} строк',
           onChanged: (value) => setState(() => _initialLines = value),
           onChangeEnd: (value) {
+            // Приводим значение к шагу и сохраняем через провайдер настроек.
             final snapped =
                 (((value - _minLines) / _step).round() * _step + _minLines).clamp(_minLines, _maxLines).toInt();
             setState(() => _initialLines = snapped.toDouble());

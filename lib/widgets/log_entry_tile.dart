@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../models/log_entry.dart';
 
+/// Виджет отображения отдельной записи журнала с цветовым акцентом.
 class LogEntryTile extends StatelessWidget {
   const LogEntryTile({super.key, required this.entry, required this.isEven});
 
   final LogEntry entry;
   final bool isEven;
 
+  /// Возвращает цвет фона, обеспечивающий чередование строк (зебру).
   Color _zebraColor(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final base = scheme.surface;
@@ -18,6 +20,7 @@ class LogEntryTile extends StatelessWidget {
     return isEven ? base : alternate;
   }
 
+  /// Подбирает цветовую метку в зависимости от уровня серьёзности сообщения.
   Color _accentForSeverity() {
     switch (entry.severity) {
       case LogSeverity.emergency:
@@ -37,6 +40,7 @@ class LogEntryTile extends StatelessWidget {
     }
   }
 
+  /// Возвращает подходящую иконку для визуального обозначения серьёзности.
   IconData _iconForSeverity() {
     switch (entry.severity) {
       case LogSeverity.emergency:
@@ -56,6 +60,7 @@ class LogEntryTile extends StatelessWidget {
     }
   }
 
+  /// Строит карточку записи журнала с временными метками и сообщением.
   @override
   Widget build(BuildContext context) {
     final accent = _accentForSeverity();
