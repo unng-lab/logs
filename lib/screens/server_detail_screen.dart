@@ -155,10 +155,11 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final entry = filtered[filtered.length - 1 - index];
+        final reversedIndex = filtered.length - 1 - index;
+        final entry = filtered[reversedIndex];
         return LogEntryTile(
           entry: entry,
-          isEven: index.isEven,
+          isEven: reversedIndex.isEven,
         );
       },
     );
