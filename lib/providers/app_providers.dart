@@ -23,6 +23,11 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 
 final sshServiceProvider = Provider<SSHService>((ref) => SSHService());
 
+final serverStatusProvider = AutoDisposeFutureProvider.family<bool, ServerConfig>((ref, server) {
+  final service = ref.watch(sshServiceProvider);
+  return service.checkConnection(server);
+});
+
 final serverListProvider = StateNotifierProvider<ServerListNotifier, AsyncValue<List<ServerConfig>>>(
   (ref) => ServerListNotifier(ref.watch(serverRepositoryProvider)),
 );

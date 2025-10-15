@@ -14,7 +14,7 @@ class SettingsRepository {
   Future<AppSettings> load() async {
     final raw = _preferences.getString(_storageKey);
     if (raw == null) {
-      return const AppSettings(logRetentionDays: 7);
+      return const AppSettings(initialLogLines: 100);
     }
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
     return AppSettings.fromJson(decoded);
