@@ -29,11 +29,13 @@ class ServerDetailScreen extends ConsumerStatefulWidget {
 class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
   String _filter = '';
 
+  /// Строит основной интерфейс экрана с фильтрами и списком логов.
   @override
-  void initState() {
-    super.initState();
-    final provider = serverDetailControllerProvider(widget.args.server);
-    ref.listen<AsyncValue<ServerDetailState>>(provider, (previous, next) {
+  Widget build(BuildContext context) {
+    final server = widget.args.server;
+    final controllerProvider = serverDetailControllerProvider(server);
+    ref.listen<AsyncValue<ServerDetailState>>(controllerProvider,
+        (previous, next) {
       final previousAlertId = previous?.value?.alert?.id;
       final alert = next.value?.alert;
       if (alert != null && alert.id != previousAlertId) {
@@ -48,16 +50,9 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
                 alert.isError ? Theme.of(context).colorScheme.error : null,
           ),
         );
-        ref.read(provider.notifier).clearAlert();
+        ref.read(controllerProvider.notifier).clearAlert();
       }
     });
-  }
-
-  /// Строит основной интерфейс экрана с фильтрами и списком логов.
-  @override
-  Widget build(BuildContext context) {
-    final server = widget.args.server;
-    final controllerProvider = serverDetailControllerProvider(server);
     final controllerState = ref.watch(controllerProvider);
     final settingsAsync = ref.watch(settingsProvider);
 
