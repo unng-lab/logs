@@ -18,6 +18,7 @@ class LogEntry {
     required this.severity,
     required this.service,
     required this.raw,
+    this.realtimeTimestampMicros,
   });
 
   final DateTime timestamp;
@@ -25,10 +26,22 @@ class LogEntry {
   final LogSeverity severity;
   final String service;
   final Map<String, dynamic> raw;
+  final String? realtimeTimestampMicros;
 
   String get formattedTimestamp {
     final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
     return formatter.format(timestamp.toLocal());
+  }
+
+  String get formattedRealtimeTimestamp {
+    final micros = int.tryParse(realtimeTimestampMicros ?? '');
+    if (micros == null) {
+      return '-';
+    }
+    final realtime =
+        DateTime.fromMicrosecondsSinceEpoch(micros, isUtc: true).toLocal();
+    final formatter = DateFormat('yyyy-MM-dd HH:mm:ss.SSSSSS');
+    return formatter.format(realtime);
   }
 
   static LogSeverity severityFromPriority(String? priority) {

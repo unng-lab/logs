@@ -127,7 +127,8 @@ class SSHService {
 
   LogEntry _mapJsonToEntry(Map<String, dynamic> json, String service) {
     final message = (json['MESSAGE'] as String?) ?? '';
-    final timestampMicros = int.tryParse(json['__REALTIME_TIMESTAMP']?.toString() ?? '');
+    final realtimeMicros = json['__REALTIME_TIMESTAMP']?.toString();
+    final timestampMicros = int.tryParse(realtimeMicros ?? '');
     final timestamp = timestampMicros != null
         ? DateTime.fromMicrosecondsSinceEpoch(timestampMicros, isUtc: true)
         : DateTime.now().toUtc();
@@ -138,6 +139,7 @@ class SSHService {
       severity: severity,
       service: service,
       raw: json,
+      realtimeTimestampMicros: realtimeMicros,
     );
   }
 }

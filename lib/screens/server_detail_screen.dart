@@ -153,7 +153,10 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final entry = filtered[filtered.length - 1 - index];
-        return LogEntryTile(entry: entry);
+        return LogEntryTile(
+          entry: entry,
+          isEven: index.isEven,
+        );
       },
     );
   }
