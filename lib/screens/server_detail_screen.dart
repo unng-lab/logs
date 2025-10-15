@@ -109,7 +109,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       return const Text('Сервисы не найдены или доступ запрещен.');
     }
     return DropdownButtonFormField<String>(
-      value: _selectedService ?? _server.defaultService,
+      initialValue: _selectedService ?? _server.defaultService,
       decoration: const InputDecoration(labelText: 'Сервис'),
       items: _services
           .map(

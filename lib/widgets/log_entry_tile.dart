@@ -20,7 +20,7 @@ class LogEntryTile extends StatelessWidget {
       case LogSeverity.notice:
         return Colors.blueGrey.shade200;
       case LogSeverity.info:
-        return Theme.of(context).colorScheme.surfaceVariant;
+        return Theme.of(context).colorScheme.surfaceContainerHighest;
       case LogSeverity.debug:
         return Theme.of(context).colorScheme.surface;
     }
