@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:intl/intl.dart';
 
 import '../models/app_settings.dart';
 import '../models/log_entry.dart';
@@ -64,10 +63,9 @@ class SSHService {
 
     controller.onListen = () async {
       client = await _connect(server);
-      final since = DateTime.now().subtract(Duration(days: settings.logRetentionDays));
-      final sinceFormatted = DateFormat('yyyy-MM-dd HH:mm:ss').format(since.toUtc());
+      final lines = settings.initialLogLines.clamp(1, 1000).toInt();
       final command =
-          'journalctl -u $service --since "$sinceFormatted UTC" -o json --follow --no-pager';
+          'journalctl -u $service -n $lines -o json --follow --no-pager';
       channel = await client!.execute(command);
       final stdout = utf8
           .decoder
@@ -105,6 +103,19 @@ class SSHService {
     };
 
     return controller.stream;
+  }
+
+  Future<bool> checkConnection(ServerConfig server) async {
+    SSHClient? client;
+    try {
+      client = await _connect(server);
+      await _runCommand(client, 'true');
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      client?.close();
+    }
   }
 
   Future<String> _runCommand(SSHClient client, String command) async {

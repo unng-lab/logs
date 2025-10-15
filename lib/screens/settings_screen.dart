@@ -36,12 +36,17 @@ class _SettingsForm extends ConsumerStatefulWidget {
 }
 
 class _SettingsFormState extends ConsumerState<_SettingsForm> {
-  late double _retentionDays;
+  static const int _minLines = 50;
+  static const int _maxLines = 500;
+  static const int _step = 50;
+  late double _initialLines;
 
   @override
   void initState() {
     super.initState();
-    _retentionDays = widget.settings.logRetentionDays.toDouble();
+    final clamped = widget.settings.initialLogLines.clamp(_minLines, _maxLines);
+    final snapped = ((clamped - _minLines) / _step).round() * _step + _minLines;
+    _initialLines = snapped.toDouble();
   }
 
   @override
@@ -52,24 +57,29 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
       padding: const EdgeInsets.all(24),
       children: [
         Text(
-          'Сколько дней хранить логи при подключении (по умолчанию 7)?',
+          'Сколько строк журнала загружать при подключении (по умолчанию 100)?',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 16),
         Slider(
-          value: _retentionDays,
-          min: 1,
-          max: 30,
-          divisions: 29,
-          label: '${_retentionDays.round()} дней',
-          onChanged: (value) => setState(() => _retentionDays = value),
-          onChangeEnd: (value) => notifier.update(
-            widget.settings.copyWith(logRetentionDays: value.round()),
-          ),
+          value: _initialLines,
+          min: _minLines.toDouble(),
+          max: _maxLines.toDouble(),
+          divisions: (_maxLines - _minLines) ~/ _step,
+          label: '${_initialLines.round()} строк',
+          onChanged: (value) => setState(() => _initialLines = value),
+          onChangeEnd: (value) {
+            final snapped =
+                (((value - _minLines) / _step).round() * _step + _minLines).clamp(_minLines, _maxLines).toInt();
+            setState(() => _initialLines = snapped.toDouble());
+            notifier.update(
+              widget.settings.copyWith(initialLogLines: snapped),
+            );
+          },
         ),
         const SizedBox(height: 12),
         Text(
-          'Текущая глубина: ${_retentionDays.round()} дней',
+          'Текущая глубина: ${_initialLines.round()} строк',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
