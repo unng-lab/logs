@@ -34,14 +34,25 @@ class ServerListScreen extends ConsumerWidget {
           return ListView.separated(
             itemBuilder: (context, index) {
               final server = servers[index];
-              return ListTile(
-                leading: const Icon(Icons.dns_outlined),
-                title: Text(server.name),
-                subtitle: Text('${server.username}@${server.host}:${server.port}'),
-                onTap: () => _openDetail(context, server),
-                trailing: IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _openEditor(context, server: server),
+              final statusAsync = ref.watch(serverStatusProvider(server));
+              return statusAsync.when(
+                data: (isOnline) => _buildServerTile(
+                  context,
+                  server,
+                  statusText: isOnline ? 'Онлайн' : 'Отключен',
+                  statusColor: isOnline ? Colors.green : Colors.red,
+                ),
+                loading: () => _buildServerTile(
+                  context,
+                  server,
+                  statusText: 'Проверяем подключение...',
+                  statusColor: Colors.orange,
+                ),
+                error: (error, _) => _buildServerTile(
+                  context,
+                  server,
+                  statusText: 'Ошибка проверки подключения',
+                  statusColor: Colors.red,
                 ),
               );
             },
@@ -75,6 +86,44 @@ class ServerListScreen extends ConsumerWidget {
     Navigator.of(context).pushNamed(
       ServerDetailScreen.routeName,
       arguments: ServerDetailArguments(server: server),
+    );
+  }
+
+  Widget _buildServerTile(
+    BuildContext context,
+    ServerConfig server, {
+    required String statusText,
+    required Color statusColor,
+  }) {
+    return ListTile(
+      leading: Icon(Icons.dns_outlined, color: statusColor),
+      title: Text(server.name),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${server.username}@${server.host}:${server.port}'),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.circle, size: 10, color: statusColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  statusText,
+                  style: TextStyle(color: statusColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      onTap: () => _openDetail(context, server),
+      trailing: IconButton(
+        icon: const Icon(Icons.edit_outlined),
+        onPressed: () => _openEditor(context, server: server),
+      ),
     );
   }
 }

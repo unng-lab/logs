@@ -1,6 +1,6 @@
 # SSH Systemd Logs
 
-Flutter application that connects to remote Linux servers over SSH and streams their systemd logs in real time. Users can manage multiple servers, switch between services, and configure log retention depth.
+Flutter application that connects to remote Linux servers over SSH and streams their systemd logs in real time. Users can manage multiple servers, switch between services, and configure how many historical log lines are loaded.
 
 ## Features
 
@@ -8,7 +8,7 @@ Flutter application that connects to remote Linux servers over SSH and streams t
 - Discover and list available systemd services that produce logs.
 - Stream logs in real time with filtering, search, and severity highlighting.
 - Persist server list and preferences locally using shared preferences.
-- Configure log retention depth globally (defaults to 7 days).
+- Configure how many recent log lines are fetched on connect (defaults to 100 lines).
 
 ## Getting Started
 
