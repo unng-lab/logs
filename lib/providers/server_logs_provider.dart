@@ -50,11 +50,14 @@ class ServerLogsNotifier
   StreamSubscription<LogEntry>? _subscription;
   AppSettings? _cachedSettings;
   int? _lastInitialLines;
+  bool _isDisposed = false;
 
   @override
   FutureOr<ServerLogsState> build(ServerConfig arg) async {
     _server = arg;
+    _isDisposed = false;
     ref.onDispose(() async {
+      _isDisposed = true;
       await _subscription?.cancel();
       _subscription = null;
     });
@@ -194,7 +197,13 @@ class ServerLogsNotifier
         if (latest == null) {
           return;
         }
-        final updatedLogs = List<LogEntry>.from(latest.logs)..add(event);
+        final receivedAt = DateTime.now().toUtc();
+        final shouldMarkFresh = _shouldMarkAsFresh(event, receivedAt);
+        final freshEntry = event.copyWith(
+          receivedAt: receivedAt,
+          isFresh: shouldMarkFresh,
+        );
+        final updatedLogs = List<LogEntry>.from(latest.logs)..add(freshEntry);
         if (updatedLogs.length > _maxBufferedEntries) {
           updatedLogs.removeRange(
             0,
@@ -204,6 +213,9 @@ class ServerLogsNotifier
         state = AsyncValue.data(
           latest.copyWith(logs: updatedLogs, isStreaming: true),
         );
+        if (shouldMarkFresh) {
+          _scheduleFreshnessExpiration(freshEntry);
+        }
       },
       onError: (error, stackTrace) {
         state = AsyncValue.error(error, stackTrace);
@@ -226,6 +238,34 @@ class ServerLogsNotifier
   ) async {
     await _subscription?.cancel();
     await _startStreaming(services, settings);
+  }
+
+  bool _shouldMarkAsFresh(LogEntry entry, DateTime receivedAt) {
+    final timestampUtc =
+        entry.timestamp.isUtc ? entry.timestamp : entry.timestamp.toUtc();
+    final difference = receivedAt.difference(timestampUtc);
+    return difference.abs() <= const Duration(seconds: 5);
+  }
+
+  void _scheduleFreshnessExpiration(LogEntry entry) {
+    Future<void>.delayed(const Duration(seconds: 5), () {
+      if (_isDisposed) {
+        return;
+      }
+      final latest = state.valueOrNull;
+      if (latest == null) {
+        return;
+      }
+      final index = latest.logs.indexWhere((log) => identical(log, entry));
+      if (index == -1) {
+        return;
+      }
+      final updatedLogs = List<LogEntry>.from(latest.logs);
+      updatedLogs[index] = entry.copyWith(isFresh: false);
+      state = AsyncValue.data(
+        latest.copyWith(logs: updatedLogs),
+      );
+    });
   }
 }
 

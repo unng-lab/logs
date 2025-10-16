@@ -275,6 +275,7 @@ class SSHService {
       service: service,
       raw: json,
       realtimeTimestampMicros: realtimeMicros,
+      receivedAt: DateTime.now().toUtc(),
     );
   }
 }
