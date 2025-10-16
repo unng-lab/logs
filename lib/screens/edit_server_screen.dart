@@ -34,14 +34,19 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
   void initState() {
     super.initState();
     final server = widget.server;
-    _nameController = TextEditingController(text: server?.name ?? 'Новый сервер');
+    _nameController =
+        TextEditingController(text: server?.name ?? 'Новый сервер');
     _hostController = TextEditingController(text: server?.host ?? '');
-    _portController = TextEditingController(text: (server?.port ?? 22).toString());
+    _portController =
+        TextEditingController(text: (server?.port ?? 22).toString());
     _usernameController = TextEditingController(text: server?.username ?? '');
     _passwordController = TextEditingController(text: server?.password ?? '');
-    _privateKeyController = TextEditingController(text: server?.privateKey ?? '');
-    _passphraseController = TextEditingController(text: server?.passphrase ?? '');
-    _defaultServiceController = TextEditingController(text: server?.defaultService ?? '');
+    _privateKeyController =
+        TextEditingController(text: server?.privateKey ?? '');
+    _passphraseController =
+        TextEditingController(text: server?.passphrase ?? '');
+    _defaultServiceController =
+        TextEditingController(text: server?.defaultService ?? '');
   }
 
   /// Освобождает ресурсы контроллеров при закрытии экрана.
@@ -71,7 +76,8 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
           if (isEditing)
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              onPressed: serversAsync.hasValue ? () => _deleteServer(context) : null,
+              onPressed:
+                  serversAsync.hasValue ? () => _deleteServer(context) : null,
             ),
         ],
       ),
@@ -83,14 +89,17 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Название'),
-              validator: (value) => value == null || value.isEmpty ? 'Введите название' : null,
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Введите название' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _hostController,
               decoration: const InputDecoration(labelText: 'Хост или IP'),
               keyboardType: TextInputType.url,
-              validator: (value) => value == null || value.isEmpty ? 'Введите адрес сервера' : null,
+              validator: (value) => value == null || value.isEmpty
+                  ? 'Введите адрес сервера'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -109,7 +118,9 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
             TextFormField(
               controller: _usernameController,
               decoration: const InputDecoration(labelText: 'Пользователь'),
-              validator: (value) => value == null || value.isEmpty ? 'Введите пользователя' : null,
+              validator: (value) => value == null || value.isEmpty
+                  ? 'Введите пользователя'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -117,8 +128,11 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
               decoration: InputDecoration(
                 labelText: 'Пароль',
                 suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(_obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
               obscureText: _obscurePassword,
@@ -135,12 +149,14 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _passphraseController,
-              decoration: const InputDecoration(labelText: 'Пароль к ключу (если есть)'),
+              decoration: const InputDecoration(
+                  labelText: 'Пароль к ключу (если есть)'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _defaultServiceController,
-              decoration: const InputDecoration(labelText: 'Сервис по умолчанию'),
+              decoration:
+                  const InputDecoration(labelText: 'Сервис по умолчанию'),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -161,21 +177,29 @@ class _EditServerScreenState extends ConsumerState<EditServerScreen> {
     }
     final notifier = ref.read(serverListProvider.notifier);
     // Формируем объект конфигурации, подставляя значения из формы.
-    final server = (widget.server ?? ServerConfig(
-      name: _nameController.text.trim(),
-      host: _hostController.text.trim(),
-      port: int.tryParse(_portController.text.trim()) ?? 22,
-      username: _usernameController.text.trim(),
-    ))
+    final server = (widget.server ??
+            ServerConfig(
+              name: _nameController.text.trim(),
+              host: _hostController.text.trim(),
+              port: int.tryParse(_portController.text.trim()) ?? 22,
+              username: _usernameController.text.trim(),
+            ))
         .copyWith(
       name: _nameController.text.trim(),
       host: _hostController.text.trim(),
       port: int.tryParse(_portController.text.trim()) ?? 22,
       username: _usernameController.text.trim(),
-      password: _passwordController.text.isEmpty ? null : _passwordController.text,
-      privateKey: _privateKeyController.text.isEmpty ? null : _privateKeyController.text,
-      passphrase: _passphraseController.text.isEmpty ? null : _passphraseController.text,
-      defaultService: _defaultServiceController.text.isEmpty ? null : _defaultServiceController.text,
+      password:
+          _passwordController.text.isEmpty ? null : _passwordController.text,
+      privateKey: _privateKeyController.text.isEmpty
+          ? null
+          : _privateKeyController.text,
+      passphrase: _passphraseController.text.isEmpty
+          ? null
+          : _passphraseController.text,
+      defaultService: _defaultServiceController.text.isEmpty
+          ? null
+          : _defaultServiceController.text,
     );
 
     if (widget.server == null) {

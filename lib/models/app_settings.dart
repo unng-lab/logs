@@ -6,7 +6,8 @@ class AppSettings {
 
   /// Возвращает копию настроек с изменёнными полями.
   AppSettings copyWith({int? initialLogLines}) {
-    return AppSettings(initialLogLines: initialLogLines ?? this.initialLogLines);
+    return AppSettings(
+        initialLogLines: initialLogLines ?? this.initialLogLines);
   }
 
   /// Сериализует настройки в JSON для хранения.

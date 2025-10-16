@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/app_providers.dart';
+import 'providers/server_logs_provider.dart';
 import 'screens/server_detail_screen.dart';
 import 'screens/server_list_screen.dart';
 import 'screens/settings_screen.dart';
@@ -33,6 +34,8 @@ class SSHLogsApp extends ConsumerWidget {
   /// Собирает MaterialApp с преднастроенными маршрутами и темой.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Гарантируем, что фоновые сборщики логов запустятся вместе с приложением.
+    ref.watch(logCollectionBootstrapProvider);
     // Возвращаем MaterialApp с преднастроенными маршрутами и обработчиком
     // динамических переходов.
     return MaterialApp(
