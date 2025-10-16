@@ -1,4 +1,4 @@
-package com.example.ssh_systemd_logs
+package unng.logs
 
 import io.flutter.embedding.android.FlutterActivity
 
