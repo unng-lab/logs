@@ -119,30 +119,6 @@ class LogEntryTile extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    if (entry.isFresh) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          'Свежая запись',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                    ],
                     SelectableText(entry.message),
                   ],
                 ),
@@ -153,13 +129,10 @@ class LogEntryTile extends StatelessWidget {
             Positioned(
               top: 0,
               right: 0,
-              child: Tooltip(
-                message: 'Свежая запись',
-                child: Icon(
-                  Icons.auto_awesome,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
+              child: Icon(
+                Icons.auto_awesome,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
               ),
             ),
         ],
