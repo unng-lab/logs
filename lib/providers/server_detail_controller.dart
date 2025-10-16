@@ -121,18 +121,18 @@ class ServerDetailController
 
   Future<void> selectService(String? service) async {
     final current = state.value;
-    if (current == null || service == current.selectedService) {
+    if (current == null || service == null || service == current.selectedService) {
       return;
     }
-    final updatedServer = _server.copyWith(defaultService: service);
-    _server = updatedServer;
-    await ref.read(serverListProvider.notifier).update(updatedServer);
     state = AsyncValue.data(
       current.copyWith(
         selectedService: service,
         clearAlert: true,
       ),
     );
+    final updatedServer = _server.copyWith(defaultService: service);
+    _server = updatedServer;
+    await ref.read(serverListProvider.notifier).update(updatedServer);
   }
 
   Future<void> toggleStreaming() async {
