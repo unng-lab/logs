@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../models/log_entry.dart';
 import '../models/server_config.dart';
-import '../services/ssh_service.dart';
 import 'app_providers.dart';
 
 /// Максимальное количество записей в буфере логов для одного сервера.
