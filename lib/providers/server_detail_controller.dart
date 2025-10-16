@@ -22,6 +22,8 @@ class ServerDetailAlert {
 
 /// Состояние детального экрана сервера.
 class ServerDetailState {
+  static const Object _sentinel = Object();
+
   const ServerDetailState({
     this.services = const <String>[],
     this.selectedService,
@@ -40,16 +42,19 @@ class ServerDetailState {
 
   ServerDetailState copyWith({
     List<String>? services,
-    String? selectedService,
+    Object? selectedService = _sentinel,
     List<LogEntry>? logs,
     bool? isStreaming,
     bool? isLoadingServices,
     ServerDetailAlert? alert,
     bool clearAlert = false,
   }) {
+    final resolvedSelectedService = selectedService == _sentinel
+        ? this.selectedService
+        : selectedService as String?;
     return ServerDetailState(
       services: services ?? this.services,
-      selectedService: selectedService ?? this.selectedService,
+      selectedService: resolvedSelectedService,
       logs: logs ?? this.logs,
       isStreaming: isStreaming ?? this.isStreaming,
       isLoadingServices: isLoadingServices ?? this.isLoadingServices,
@@ -89,7 +94,9 @@ class ServerDetailController
       final current = state.valueOrNull;
       final selected = _resolveSelectedService(
         data.services,
-        _userSelectedService ?? current?.selectedService ?? _server.defaultService,
+        _userSelectedService ??
+            current?.selectedService ??
+            _server.defaultService,
       );
       _syncUserSelectedService(data.services, selected);
       final updated = (current ?? const ServerDetailState()).copyWith(
@@ -124,7 +131,7 @@ class ServerDetailController
 
   Future<void> selectService(String? service) async {
     final current = state.value;
-    if (current == null || service == null || service == current.selectedService) {
+    if (current == null || service == current.selectedService) {
       return;
     }
     _userSelectedService = service;
@@ -141,14 +148,17 @@ class ServerDetailController
 
   Future<void> toggleStreaming() async {
     final current = state.valueOrNull;
-    if (current == null || current.selectedService == null) {
+    if (current == null) {
       return;
     }
     await ref.read(serverLogsProvider(_server).notifier).restart();
   }
 
   String? _resolveSelectedService(List<String> services, String? preferred) {
-    if (preferred != null && services.contains(preferred)) {
+    if (preferred == null) {
+      return null;
+    }
+    if (services.contains(preferred)) {
       return preferred;
     }
     if (services.isNotEmpty) {

@@ -34,8 +34,11 @@ class ServerConfig {
     String? password,
     String? privateKey,
     String? passphrase,
-    String? defaultService,
+    Object? defaultService = _sentinel,
   }) {
+    final resolvedDefaultService = defaultService == _sentinel
+        ? this.defaultService
+        : defaultService as String?;
     return ServerConfig(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -45,7 +48,7 @@ class ServerConfig {
       password: password ?? this.password,
       privateKey: privateKey ?? this.privateKey,
       passphrase: passphrase ?? this.passphrase,
-      defaultService: defaultService ?? this.defaultService,
+      defaultService: resolvedDefaultService,
     );
   }
 
@@ -102,4 +105,6 @@ class ServerConfig {
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     return timestamp.toRadixString(16);
   }
+
+  static const Object _sentinel = Object();
 }

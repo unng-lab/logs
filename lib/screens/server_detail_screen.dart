@@ -27,6 +27,8 @@ class ServerDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
+  static const String _allServicesValue = '__all_services__';
+
   String _filter = '';
 
   /// Строит основной интерфейс экрана с фильтрами и списком логов.
@@ -75,8 +77,8 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
           IconButton(
             icon: const Icon(Icons.sync),
             tooltip: 'Перезапустить поток',
-            onPressed: (controllerState.valueOrNull?.selectedService == null ||
-                    !settingsAsync.hasValue)
+            onPressed: (!settingsAsync.hasValue ||
+                    (controllerState.valueOrNull?.services.isEmpty ?? true))
                 ? null
                 : () => ref.read(controllerProvider.notifier).toggleStreaming(),
           ),
@@ -125,23 +127,30 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     if (state == null || state.services.isEmpty) {
       return const Text('Сервисы не найдены или доступ запрещен.');
     }
+    final dropdownValue = state.selectedService ?? _allServicesValue;
     return DropdownButtonFormField<String>(
-      value: state.selectedService,
+      initialValue: dropdownValue,
       decoration: const InputDecoration(labelText: 'Сервис'),
-      items: state.services
-          .map(
-            (service) => DropdownMenuItem(
-              value: service,
-              child: Text(service),
-            ),
-          )
-          .toList(),
+      items: [
+        const DropdownMenuItem<String>(
+          value: _allServicesValue,
+          child: Text('Все логи'),
+        ),
+        ...state.services.map(
+          (service) => DropdownMenuItem(
+            value: service,
+            child: Text(service),
+          ),
+        ),
+      ],
       onChanged: (value) {
-        if (value != null) {
-          ref
-              .read(serverDetailControllerProvider(widget.args.server).notifier)
-              .selectService(value);
+        final notifier = ref
+            .read(serverDetailControllerProvider(widget.args.server).notifier);
+        if (value == null || value == _allServicesValue) {
+          notifier.selectService(null);
+          return;
         }
+        notifier.selectService(value);
       },
     );
   }
@@ -155,41 +164,56 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     if (controllerState.hasError && state == null) {
       return const Center(child: Text('Не удалось загрузить данные.'));
     }
-    final selectedService = state?.selectedService;
-    if (selectedService == null) {
-      return const Center(child: Text('Выберите сервис, чтобы увидеть логи.'));
-    }
-    final serviceLogs = state?.logs
-            .where((log) => log.service == selectedService)
-            .toList(growable: false) ??
-        const <LogEntry>[];
-    if (serviceLogs.isEmpty) {
+    final allLogs = state?.logs ?? const <LogEntry>[];
+    if (allLogs.isEmpty) {
       return const Center(child: Text('Ждём новых записей журнала...'));
     }
-    final filtered = _filter.isEmpty
+
+    final selectedService = state?.selectedService;
+    final serviceLogs = selectedService == null
+        ? allLogs
+        : allLogs
+            .where((log) => log.service == selectedService)
+            .toList(growable: false);
+
+    if (serviceLogs.isEmpty) {
+      return Center(
+        child: Text(
+          selectedService == null
+              ? 'Ждём новых записей журнала...'
+              : 'Для выбранного сервиса пока нет записей.',
+        ),
+      );
+    }
+
+    final normalizedFilter = _filter.toLowerCase();
+    final filtered = normalizedFilter.isEmpty
         ? serviceLogs
         : serviceLogs
-            .where((log) =>
-                log.message.toLowerCase().contains(_filter.toLowerCase()))
-            .toList();
+            .where(
+              (log) => log.message.toLowerCase().contains(normalizedFilter),
+            )
+            .toList(growable: false);
     if (filtered.isEmpty) {
       return const Center(child: Text('По фильтру ничего не найдено.'));
     }
 
-    return ListView.builder(
-      reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final reversedIndex = filtered.length - 1 - index;
-        final entry = filtered[reversedIndex];
-        return LogEntryTile(
-          entry: entry,
-          // Используем индекс элемента в текущем представлении списка, чтобы
-          // зебра корректно обновлялась при поступлении новых сообщений.
-          isEven: index.isEven,
-        );
-      },
+    return SelectionArea(
+      child: ListView.builder(
+        reverse: true,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        itemCount: filtered.length,
+        itemBuilder: (context, index) {
+          final reversedIndex = filtered.length - 1 - index;
+          final entry = filtered[reversedIndex];
+          return LogEntryTile(
+            entry: entry,
+            // Используем индекс элемента в текущем представлении списка, чтобы
+            // зебра корректно обновлялась при поступлении новых сообщений.
+            isEven: index.isEven,
+          );
+        },
+      ),
     );
   }
 }
