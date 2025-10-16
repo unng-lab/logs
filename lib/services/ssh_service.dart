@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
 import 'package:dartssh2/dartssh2.dart';
 
@@ -8,26 +9,99 @@ import '../models/log_entry.dart';
 import '../models/server_config.dart';
 
 /// Инкапсулирует работу по SSH: подключение, чтение логов и получение метрик.
+class SSHConnectionException implements Exception {
+  const SSHConnectionException._({
+    required this.message,
+    required this.host,
+    required this.port,
+    this.cause,
+  });
+
+  factory SSHConnectionException.timeout({
+    required String host,
+    required int port,
+    Object? cause,
+  }) {
+    return SSHConnectionException._(
+      message: 'Не удалось подключиться к $host:$port: истекло время ожидания.',
+      host: host,
+      port: port,
+      cause: cause,
+    );
+  }
+
+  factory SSHConnectionException.socket({
+    required String host,
+    required int port,
+    required SocketException cause,
+  }) {
+    final description = cause.message.isNotEmpty
+        ? cause.message
+        : 'ошибка сокета (${cause.osError?.message ?? cause.toString()})';
+    return SSHConnectionException._(
+      message: 'Не удалось подключиться к $host:$port: $description.',
+      host: host,
+      port: port,
+      cause: cause,
+    );
+  }
+
+  final String message;
+  final String host;
+  final int port;
+  final Object? cause;
+
+  @override
+  String toString() => message;
+}
+
 class SSHService {
   /// Устанавливает SSH-подключение с учётом пароля и ключей.
   Future<SSHClient> _connect(ServerConfig server) async {
-    final socket = await SSHSocket.connect(server.host, server.port);
-
-    List<SSHKeyPair>? identity;
-    if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
-      // Если указан приватный ключ, подготавливаем пару ключей для аутентификации.
-      identity = SSHKeyPair.fromPem(
-        server.privateKey!,
-        server.passphrase ?? '',
+    try {
+      final socket = await SSHSocket.connect(
+        server.host,
+        server.port,
+        timeout: const Duration(seconds: 12),
       );
-    }
 
-    return SSHClient(
-      socket,
-      username: server.username,
-      identities: identity,
-      onPasswordRequest: () => server.password ?? '',
-    );
+      List<SSHKeyPair>? identity;
+      if (server.privateKey != null && server.privateKey!.trim().isNotEmpty) {
+        // Если указан приватный ключ, подготавливаем пару ключей для аутентификации.
+        identity = SSHKeyPair.fromPem(
+          server.privateKey!,
+          server.passphrase ?? '',
+        );
+      }
+
+      return SSHClient(
+        socket,
+        username: server.username,
+        identities: identity,
+        onPasswordRequest: () => server.password ?? '',
+      );
+    } on TimeoutException catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        SSHConnectionException.timeout(
+          host: server.host,
+          port: server.port,
+          cause: error,
+        ),
+        stackTrace,
+      );
+    } on Object catch (error, stackTrace) {
+      if (error is SocketException) {
+        Error.throwWithStackTrace(
+          SSHConnectionException.socket(
+            host: server.host,
+            port: server.port,
+            cause: error,
+          ),
+          stackTrace,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   /// Возвращает список активных systemd-сервисов на удалённом сервере.
@@ -73,40 +147,48 @@ class SSHService {
         await controller.close();
         return;
       }
-      // Подключаемся по SSH и формируем команду journalctl.
-      client = await _connect(server);
-      final lines = settings.initialLogLines.clamp(1, 1000).toInt();
-      final serviceArgs = services.map((service) => '-u $service').join(' ');
-      final command =
-          'journalctl $serviceArgs -n $lines -o json --follow --no-pager';
-      channel = await client!.execute(command);
-      final stdout =
-          utf8.decoder.bind(channel!.stdout).transform(const LineSplitter());
-      subscription = stdout.listen(
-        (line) {
-          if (line.trim().isEmpty) {
-            return;
-          }
-          try {
-            final decoded = jsonDecode(line) as Map<String, dynamic>;
-            final entry = _mapJsonToEntry(decoded, allowedServices);
-            if (entry != null) {
-              // Отправляем только те записи, которые относятся к выбранным сервисам.
-              controller.add(entry);
+      try {
+        // Подключаемся по SSH и формируем команду journalctl.
+        client = await _connect(server);
+        final lines = settings.initialLogLines.clamp(1, 1000).toInt();
+        final serviceArgs = services.map((service) => '-u $service').join(' ');
+        final command =
+            'journalctl $serviceArgs -n $lines -o json --follow --no-pager';
+        channel = await client!.execute(command);
+        final stdout =
+            utf8.decoder.bind(channel!.stdout).transform(const LineSplitter());
+        subscription = stdout.listen(
+          (line) {
+            if (line.trim().isEmpty) {
+              return;
             }
-          } catch (_) {
-            // Ignore invalid JSON lines.
-          }
-        },
-        onError: controller.addError,
-        onDone: () async {
-          await closeResources();
-          if (!controller.isClosed) {
-            await controller.close();
-          }
-        },
-        cancelOnError: false,
-      );
+            try {
+              final decoded = jsonDecode(line) as Map<String, dynamic>;
+              final entry = _mapJsonToEntry(decoded, allowedServices);
+              if (entry != null) {
+                // Отправляем только те записи, которые относятся к выбранным сервисам.
+                controller.add(entry);
+              }
+            } catch (_) {
+              // Ignore invalid JSON lines.
+            }
+          },
+          onError: controller.addError,
+          onDone: () async {
+            await closeResources();
+            if (!controller.isClosed) {
+              await controller.close();
+            }
+          },
+          cancelOnError: false,
+        );
+      } on Object catch (error, stackTrace) {
+        await closeResources();
+        if (!controller.isClosed) {
+          controller.addError(error, stackTrace);
+          await controller.close();
+        }
+      }
     };
 
     controller.onCancel = () async {
