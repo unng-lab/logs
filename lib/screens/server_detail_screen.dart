@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -198,22 +199,30 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       return const Center(child: Text('По фильтру ничего не найдено.'));
     }
 
-    return SelectionArea(
-      child: ListView.builder(
-        reverse: true,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final reversedIndex = filtered.length - 1 - index;
-          final entry = filtered[reversedIndex];
-          return LogEntryTile(
-            entry: entry,
-            // Используем индекс элемента в текущем представлении списка, чтобы
-            // зебра корректно обновлялась при поступлении новых сообщений.
-            isEven: index.isEven,
-          );
-        },
-      ),
+    final logListView = ListView.builder(
+      reverse: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final reversedIndex = filtered.length - 1 - index;
+        final entry = filtered[reversedIndex];
+        return LogEntryTile(
+          entry: entry,
+          // Используем индекс элемента в текущем представлении списка, чтобы
+          // зебра корректно обновлялась при поступлении новых сообщений.
+          isEven: index.isEven,
+        );
+      },
     );
+
+    final isMobilePlatform = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.fuchsia;
+    final shouldUseSelectionArea = kIsWeb || !isMobilePlatform;
+
+    if (shouldUseSelectionArea) {
+      return SelectionArea(child: logListView);
+    }
+    return logListView;
   }
 }
