@@ -68,6 +68,7 @@ class ServerDetailController
     extends AutoDisposeFamilyAsyncNotifier<ServerDetailState, ServerConfig> {
   late ServerConfig _server;
   int _alertId = 0;
+  String? _userSelectedService;
 
   @override
   FutureOr<ServerDetailState> build(ServerConfig server) async {
@@ -88,8 +89,9 @@ class ServerDetailController
       final current = state.valueOrNull;
       final selected = _resolveSelectedService(
         data.services,
-        current?.selectedService ?? _server.defaultService,
+        _userSelectedService ?? current?.selectedService ?? _server.defaultService,
       );
+      _syncUserSelectedService(data.services, selected);
       final updated = (current ?? const ServerDetailState()).copyWith(
         services: data.services,
         selectedService: selected,
@@ -104,8 +106,9 @@ class ServerDetailController
     final backgroundState = await ref.watch(serverLogsProvider(server).future);
     final selected = _resolveSelectedService(
       backgroundState.services,
-      server.defaultService,
+      _userSelectedService ?? server.defaultService,
     );
+    _syncUserSelectedService(backgroundState.services, selected);
     return ServerDetailState(
       services: backgroundState.services,
       selectedService: selected,
@@ -151,6 +154,17 @@ class ServerDetailController
       return services.first;
     }
     return null;
+  }
+
+  void _syncUserSelectedService(List<String> services, String? resolved) {
+    final userSelection = _userSelectedService;
+    if (userSelection != null && !services.contains(userSelection)) {
+      _userSelectedService = resolved;
+      return;
+    }
+    if (userSelection == null && resolved != null) {
+      _userSelectedService = resolved;
+    }
   }
 
   void _emitAlert(String message, {bool isError = false}) {
