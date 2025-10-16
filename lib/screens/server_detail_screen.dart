@@ -169,7 +169,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     final selectedService = state.selectedService;
     return DropdownButtonFormField<String?>(
       key: ValueKey<String>('service:${selectedService ?? 'all'}'),
-      initialValue: selectedService,
+      value: selectedService,
       decoration: const InputDecoration(labelText: 'Сервис'),
       items: [
         const DropdownMenuItem<String?>(
