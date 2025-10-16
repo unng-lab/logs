@@ -20,7 +20,9 @@ class LogEntry {
     required this.severity,
     required this.service,
     required this.raw,
+    required this.receivedAt,
     this.realtimeTimestampMicros,
+    this.isFresh = false,
   });
 
   final DateTime timestamp;
@@ -29,6 +31,34 @@ class LogEntry {
   final String service;
   final Map<String, dynamic> raw;
   final String? realtimeTimestampMicros;
+  final DateTime receivedAt;
+
+  /// Показывает, что запись была получена менее 5 секунд назад.
+  final bool isFresh;
+
+  /// Создаёт копию записи с возможностью обновления отдельных полей.
+  LogEntry copyWith({
+    DateTime? timestamp,
+    String? message,
+    LogSeverity? severity,
+    String? service,
+    Map<String, dynamic>? raw,
+    String? realtimeTimestampMicros,
+    DateTime? receivedAt,
+    bool? isFresh,
+  }) {
+    return LogEntry(
+      timestamp: timestamp ?? this.timestamp,
+      message: message ?? this.message,
+      severity: severity ?? this.severity,
+      service: service ?? this.service,
+      raw: raw ?? this.raw,
+      realtimeTimestampMicros:
+          realtimeTimestampMicros ?? this.realtimeTimestampMicros,
+      receivedAt: receivedAt ?? this.receivedAt,
+      isFresh: isFresh ?? this.isFresh,
+    );
+  }
 
   /// Форматированная временная метка с точностью до секунд.
   String get formattedTimestamp {
