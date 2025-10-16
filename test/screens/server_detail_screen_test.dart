@@ -56,6 +56,57 @@ void main() {
     expect(find.text('Test alert'), findsOneWidget);
     expect(controller.clearAlertCount, 1);
   });
+
+  testWidgets('keeps "Все логи" selected after choosing it', (tester) async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    final preferences = await SharedPreferences.getInstance();
+
+    final server = ServerConfig(
+      id: 'test',
+      name: 'Server',
+      host: 'localhost',
+      username: 'root',
+      port: 22,
+    );
+
+    final controller = _FakeServerDetailController(
+      const ServerDetailState(
+        services: <String>['api', 'billing'],
+        selectedService: 'api',
+        logs: <LogEntry>[],
+        isLoadingServices: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          serverDetailControllerProvider.overrideWith(() => controller),
+        ],
+        child: MaterialApp(
+          home: ServerDetailScreen(
+            args: ServerDetailArguments(server: server),
+          ),
+        ),
+      ),
+    );
+
+    final dropdownFinder = find.byType(DropdownButtonFormField<String?>);
+    expect(dropdownFinder, findsOneWidget);
+
+    await tester.tap(dropdownFinder);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Все логи').last);
+    await tester.pumpAndSettle();
+
+    final selectedTextFinder = find.descendant(
+      of: dropdownFinder,
+      matching: find.text('Все логи'),
+    );
+    expect(selectedTextFinder, findsOneWidget);
+  });
 }
 
 class _FakeServerDetailController extends ServerDetailController {
@@ -86,6 +137,20 @@ class _FakeServerDetailController extends ServerDetailController {
           message: message,
           id: _alertCounter,
         ),
+      ),
+    );
+  }
+
+  @override
+  Future<void> selectService(String? service) async {
+    final current = state.value ?? _initialState;
+    if (current.selectedService == service) {
+      return;
+    }
+    state = AsyncValue.data(
+      current.copyWith(
+        selectedService: service,
+        clearAlert: true,
       ),
     );
   }
