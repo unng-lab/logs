@@ -22,8 +22,8 @@ class LogEntry {
     required this.raw,
     required this.receivedAt,
     this.realtimeTimestampMicros,
-    this.isFresh = false,
-  });
+    bool? isFresh,
+  }) : isFresh = isFresh ?? false;
 
   final DateTime timestamp;
   final String message;
