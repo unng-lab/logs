@@ -28,8 +28,6 @@ class ServerDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
-  static const String _allServicesValue = '__all_services__';
-
   String _filter = '';
 
   /// Строит основной интерфейс экрана с фильтрами и списком логов.
@@ -128,17 +126,18 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     if (state == null || state.services.isEmpty) {
       return const Text('Сервисы не найдены или доступ запрещен.');
     }
-    final dropdownValue = state.selectedService ?? _allServicesValue;
-    return DropdownButtonFormField<String>(
-      initialValue: dropdownValue,
+    final selectedService = state.selectedService;
+    return DropdownButtonFormField<String?>(
+      key: ValueKey<String>('service:${selectedService ?? 'all'}'),
+      initialValue: selectedService,
       decoration: const InputDecoration(labelText: 'Сервис'),
       items: [
-        const DropdownMenuItem<String>(
-          value: _allServicesValue,
+        const DropdownMenuItem<String?>(
+          value: null,
           child: Text('Все логи'),
         ),
         ...state.services.map(
-          (service) => DropdownMenuItem(
+          (service) => DropdownMenuItem<String?>(
             value: service,
             child: Text(service),
           ),
@@ -147,10 +146,6 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
       onChanged: (value) {
         final notifier = ref
             .read(serverDetailControllerProvider(widget.args.server).notifier);
-        if (value == null || value == _allServicesValue) {
-          notifier.selectService(null);
-          return;
-        }
         notifier.selectService(value);
       },
     );
