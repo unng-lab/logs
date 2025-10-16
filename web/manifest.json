@@ -1,6 +1,6 @@
 {
-    "name": "ssh_systemd_logs",
-    "short_name": "ssh_systemd_logs",
+    "name": "logs",
+    "short_name": "logs",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
