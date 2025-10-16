@@ -31,6 +31,46 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
   static const String _allServicesValue = '__all_services__';
 
   String _filter = '';
+  late final ScrollController _logScrollController;
+  bool _isAtEnd = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _logScrollController = ScrollController()
+      ..addListener(_handleLogScrollPositionChange);
+  }
+
+  @override
+  void dispose() {
+    _logScrollController
+      ..removeListener(_handleLogScrollPositionChange)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleLogScrollPositionChange() {
+    if (!_logScrollController.hasClients) {
+      return;
+    }
+    final isAtEnd = _logScrollController.offset <= 32;
+    if (isAtEnd != _isAtEnd && mounted) {
+      setState(() {
+        _isAtEnd = isAtEnd;
+      });
+    }
+  }
+
+  void _scrollLogsToEnd() {
+    if (!_logScrollController.hasClients) {
+      return;
+    }
+    _logScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
 
   /// Строит основной интерфейс экрана с фильтрами и списком логов.
   @override
@@ -202,6 +242,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     final logListView = ListView.builder(
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      controller: _logScrollController,
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final reversedIndex = filtered.length - 1 - index;
@@ -220,9 +261,25 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
         defaultTargetPlatform == TargetPlatform.fuchsia;
     final shouldUseSelectionArea = kIsWeb || !isMobilePlatform;
 
+    Widget logContent = logListView;
     if (shouldUseSelectionArea) {
-      return SelectionArea(child: logListView);
+      logContent = SelectionArea(child: logContent);
     }
-    return logListView;
+
+    return Stack(
+      children: [
+        Positioned.fill(child: logContent),
+        if (!_isAtEnd)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.small(
+              onPressed: _scrollLogsToEnd,
+              tooltip: 'В конец',
+              child: const Icon(Icons.arrow_downward),
+            ),
+          ),
+      ],
+    );
   }
 }
