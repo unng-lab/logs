@@ -80,10 +80,8 @@ class SSHService {
       final command =
           'journalctl $serviceArgs -n $lines -o json --follow --no-pager';
       channel = await client!.execute(command);
-      final stdout = utf8
-          .decoder
-          .bind(channel!.stdout)
-          .transform(const LineSplitter());
+      final stdout =
+          utf8.decoder.bind(channel!.stdout).transform(const LineSplitter());
       subscription = stdout.listen(
         (line) {
           if (line.trim().isEmpty) {
@@ -140,15 +138,15 @@ class SSHService {
     SSHClient? client;
     try {
       client = await _connect(server);
-      const command =
-          'journalctl --since "1 minute ago" --no-pager | wc -l';
+      const command = 'journalctl --since "1 minute ago" --no-pager | wc -l';
       final rawOutput = await _runCommand(client, command);
       final trimmed = rawOutput.trim();
       if (trimmed.isEmpty) {
         return 0;
       }
       final tokens = trimmed.split(RegExp(r'\s+'));
-      final count = int.tryParse(tokens.isNotEmpty ? tokens.last : trimmed) ?? 0;
+      final count =
+          int.tryParse(tokens.isNotEmpty ? tokens.last : trimmed) ?? 0;
       if (count <= 0) {
         return 0;
       }
@@ -177,12 +175,15 @@ class SSHService {
     final timestamp = timestampMicros != null
         ? DateTime.fromMicrosecondsSinceEpoch(timestampMicros, isUtc: true)
         : DateTime.now().toUtc();
-    final severity = LogEntry.severityFromPriority(json['PRIORITY']?.toString());
+    final severity =
+        LogEntry.severityFromPriority(json['PRIORITY']?.toString());
     final service = (json['_SYSTEMD_UNIT'] as String?) ??
         (json['SYSTEMD_UNIT'] as String?) ??
         (json['UNIT'] as String?) ??
         (json['SYSLOG_IDENTIFIER'] as String?);
-    if (service == null || service.isEmpty || !allowedServices.contains(service)) {
+    if (service == null ||
+        service.isEmpty ||
+        !allowedServices.contains(service)) {
       return null;
     }
     return LogEntry(

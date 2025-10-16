@@ -32,7 +32,8 @@ final sshServiceProvider = Provider<SSHService>((ref) => SSHService());
 
 /// Асинхронно проверяет доступность сервера, автоматически освобождая ресурсы
 /// при отсутствии слушателей.
-final serverStatusProvider = AutoDisposeFutureProvider.family<bool, ServerConfig>((ref, server) {
+final serverStatusProvider =
+    AutoDisposeFutureProvider.family<bool, ServerConfig>((ref, server) {
   final service = ref.watch(sshServiceProvider);
   return service.checkConnection(server);
 });
@@ -86,12 +87,14 @@ final serverLogRateProvider =
 
 /// Провайдер, выдающий список серверов и управляющий изменениями через
 /// [ServerListNotifier].
-final serverListProvider = StateNotifierProvider<ServerListNotifier, AsyncValue<List<ServerConfig>>>(
+final serverListProvider =
+    StateNotifierProvider<ServerListNotifier, AsyncValue<List<ServerConfig>>>(
   (ref) => ServerListNotifier(ref.watch(serverRepositoryProvider)),
 );
 
 /// Провайдер настроек приложения, связанных с параметрами потоков логов.
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AsyncValue<AppSettings>>(
+final settingsProvider =
+    StateNotifierProvider<SettingsNotifier, AsyncValue<AppSettings>>(
   (ref) => SettingsNotifier(ref.watch(settingsRepositoryProvider)),
 );
 

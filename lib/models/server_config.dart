@@ -92,7 +92,8 @@ class ServerConfig {
     }
     final decoded = jsonDecode(value) as List<dynamic>;
     return decoded
-        .map((dynamic item) => ServerConfig.fromJson(item as Map<String, dynamic>))
+        .map((dynamic item) =>
+            ServerConfig.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 

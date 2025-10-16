@@ -22,7 +22,8 @@ class SettingsScreen extends ConsumerWidget {
       body: settingsAsync.when(
         data: (settings) => _SettingsForm(settings: settings),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Ошибка загрузки настроек: $error')),
+        error: (error, _) =>
+            Center(child: Text('Ошибка загрузки настроек: $error')),
       ),
     );
   }
@@ -76,7 +77,9 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           onChangeEnd: (value) {
             // Приводим значение к шагу и сохраняем через провайдер настроек.
             final snapped =
-                (((value - _minLines) / _step).round() * _step + _minLines).clamp(_minLines, _maxLines).toInt();
+                (((value - _minLines) / _step).round() * _step + _minLines)
+                    .clamp(_minLines, _maxLines)
+                    .toInt();
             setState(() => _initialLines = snapped.toDouble());
             notifier.update(
               widget.settings.copyWith(initialLogLines: snapped),

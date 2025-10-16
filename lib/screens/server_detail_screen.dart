@@ -73,14 +73,8 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
                 : () => ref.read(controllerProvider.notifier).refreshServices(),
           ),
           IconButton(
-            icon: Icon(
-              (controllerState.valueOrNull?.isStreaming ?? false)
-                  ? Icons.stop_circle_outlined
-                  : Icons.play_circle_outline,
-            ),
-            tooltip: (controllerState.valueOrNull?.isStreaming ?? false)
-                ? 'Остановить поток'
-                : 'Переподключиться',
+            icon: const Icon(Icons.sync),
+            tooltip: 'Перезапустить поток',
             onPressed: (controllerState.valueOrNull?.selectedService == null ||
                     !settingsAsync.hasValue)
                 ? null
