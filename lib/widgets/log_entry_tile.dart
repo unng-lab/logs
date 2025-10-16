@@ -14,7 +14,7 @@ class LogEntryTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final base = scheme.surface;
     final alternate = Color.alphaBlend(
-      scheme.primary.withOpacity(0.04),
+      scheme.primary.withValues(alpha: 0.04),
       scheme.surface,
     );
     return isEven ? base : alternate;
@@ -100,10 +100,9 @@ class LogEntryTile extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          SelectableText(
                             entry.formattedTimestamp,
                             style: Theme.of(context).textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -122,10 +121,9 @@ class LogEntryTile extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          SelectableText(
                             entry.formattedRealtimeTimestamp,
                             style: Theme.of(context).textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -133,11 +131,7 @@ class LogEntryTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  entry.message,
-                  maxLines: 6,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                SelectableText(entry.message),
               ],
             ),
           ),
