@@ -127,7 +127,6 @@ class ServerDetailController
     if (current == null || service == null || service == current.selectedService) {
       return;
     }
-    _userSelectedService = service;
     state = AsyncValue.data(
       current.copyWith(
         selectedService: service,
