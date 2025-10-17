@@ -6,7 +6,7 @@ import 'package:logs/repositories/settings_repository.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  Future<SettingsRepository> _createRepository(
+  Future<SettingsRepository> createRepository(
     Map<String, Object> initialValues,
   ) async {
     SharedPreferences.setMockInitialValues(initialValues);
@@ -15,7 +15,7 @@ void main() {
   }
 
   test('returns defaults when no settings are stored', () async {
-    final repository = await _createRepository({});
+    final repository = await createRepository({});
 
     final settings = await repository.load();
 
@@ -23,7 +23,7 @@ void main() {
   });
 
   test('returns defaults when stored JSON is corrupted', () async {
-    final repository = await _createRepository({
+    final repository = await createRepository({
       'settings': '{invalid json',
     });
 
