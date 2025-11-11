@@ -328,8 +328,8 @@ class _ServiceMetricsInfo extends ConsumerWidget {
           children: content,
         ));
       },
-      loading: () => _MetricsCard(
-        child: const Text('Загружаем метрики сервиса...'),
+      loading: () => const _MetricsCard(
+        child: Text('Загружаем метрики сервиса...'),
       ),
       error: (error, _) => _MetricsCard(
         child: Text('Метрики недоступны: ${error.toString()}'),
@@ -372,7 +372,7 @@ class _MetricsCard extends StatelessWidget {
     final theme = Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
