@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:logs/models/log_entry.dart';
+import 'package:logs/models/metrics.dart';
 import 'package:logs/models/server_config.dart';
 import 'package:logs/providers/app_providers.dart';
 import 'package:logs/providers/server_detail_controller.dart';
@@ -38,6 +39,11 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
           serverDetailControllerProvider.overrideWith(() => controller),
+          serviceMetricsProvider.overrideWithProvider(
+            (request) => AutoDisposeStreamProvider<ServiceMetrics>((ref) {
+              return const Stream<ServiceMetrics>.empty();
+            }),
+          ),
         ],
         child: MaterialApp(
           home: ServerDetailScreen(
@@ -83,6 +89,14 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
           serverDetailControllerProvider.overrideWith(() => controller),
+          serviceMetricsProvider.overrideWithProvider(
+            (request) => AutoDisposeStreamProvider<ServiceMetrics>((ref) {
+              return Stream<ServiceMetrics>.value(
+                const ServiceMetrics(
+                    cpuUsagePercent: 10, memoryUsagePercent: 20),
+              );
+            }),
+          ),
         ],
         child: MaterialApp(
           home: ServerDetailScreen(

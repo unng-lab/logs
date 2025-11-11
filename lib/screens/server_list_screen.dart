@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/server_config.dart';
+import '../models/metrics.dart';
 import '../providers/app_providers.dart';
 import 'edit_server_screen.dart';
 import 'server_detail_screen.dart';
@@ -104,7 +105,9 @@ class ServerListTile extends ConsumerWidget {
             context,
             statusText: 'Отключен',
             statusColor: Colors.red,
-            logRateText: 'Скорость журнала: недоступна',
+            details: [
+              _buildDetailText(context, 'Скорость журнала: недоступна'),
+            ],
           );
         }
 
@@ -121,24 +124,48 @@ class ServerListTile extends ConsumerWidget {
           error: (error, _) => 'Скорость журнала: ошибка (${error.toString()})',
         );
 
+        final metricsAsync = ref.watch(serverMetricsProvider(server));
+        final details = <Widget>[
+          _buildDetailText(context, logRateText),
+        ];
+        final metricsWidget = metricsAsync.when(
+          data: (metrics) {
+            final formatted = _formatServerMetrics(metrics);
+            if (formatted == null) {
+              return const SizedBox.shrink();
+            }
+            return _buildDetailText(context, formatted);
+          },
+          loading: () =>
+              _buildDetailText(context, 'Метрики: обновляем данные...'),
+          error: (error, _) => _buildDetailText(
+              context, 'Метрики: ошибка (${error.toString()})'),
+        );
+        if (metricsWidget is! SizedBox) {
+          details.add(metricsWidget);
+        }
         return _buildTile(
           context,
           statusText: 'Онлайн',
           statusColor: Colors.green,
-          logRateText: logRateText,
+          details: details,
         );
       },
       loading: () => _buildTile(
         context,
         statusText: 'Проверяем подключение...',
         statusColor: Colors.orange,
-        logRateText: 'Скорость журнала: проверяем...',
+        details: [
+          _buildDetailText(context, 'Скорость журнала: проверяем...'),
+        ],
       ),
       error: (error, _) => _buildTile(
         context,
         statusText: 'Ошибка проверки подключения',
         statusColor: Colors.red,
-        logRateText: 'Скорость журнала: недоступна',
+        details: [
+          _buildDetailText(context, 'Скорость журнала: недоступна'),
+        ],
       ),
     );
   }
@@ -147,7 +174,7 @@ class ServerListTile extends ConsumerWidget {
     BuildContext context, {
     required String statusText,
     required Color statusColor,
-    String logRateText = '',
+    List<Widget> details = const <Widget>[],
   }) {
     return ListTile(
       leading: Icon(Icons.dns_outlined, color: statusColor),
@@ -171,12 +198,9 @@ class ServerListTile extends ConsumerWidget {
               ),
             ],
           ),
-          if (logRateText.isNotEmpty) ...[
+          for (final detail in details) ...[
             const SizedBox(height: 4),
-            Text(
-              logRateText,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            detail,
           ],
         ],
       ),
@@ -199,6 +223,25 @@ class ServerListTile extends ConsumerWidget {
       return rate.toStringAsFixed(1);
     }
     return rate.toStringAsFixed(2);
+  }
+
+  Widget _buildDetailText(BuildContext context, String text) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall,
+    );
+  }
+
+  String? _formatServerMetrics(ServerMetrics metrics) {
+    final cpu = metrics.cpuUsagePercent;
+    final memory = metrics.memoryUsagePercent;
+    if (cpu == null && memory == null) {
+      return null;
+    }
+    final cpuText = cpu != null ? 'CPU: ${cpu.toStringAsFixed(1)}%' : 'CPU: —';
+    final memoryText =
+        memory != null ? 'RAM: ${memory.toStringAsFixed(1)}%' : 'RAM: —';
+    return '$cpuText · $memoryText';
   }
 }
 

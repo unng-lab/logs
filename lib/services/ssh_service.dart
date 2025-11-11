@@ -6,6 +6,7 @@ import 'package:dartssh2/dartssh2.dart';
 
 import '../models/app_settings.dart';
 import '../models/log_entry.dart';
+import '../models/metrics.dart';
 import '../models/server_config.dart';
 
 /// Инкапсулирует работу по SSH: подключение, чтение логов и получение метрик.
@@ -238,12 +239,141 @@ class SSHService {
     }
   }
 
+  /// Получает текущие метрики CPU и памяти всего сервера.
+  Future<ServerMetrics> fetchServerMetrics(ServerConfig server) async {
+    SSHClient? client;
+    try {
+      client = await _connect(server);
+      final cpuOutput = await _runCommand(
+        client,
+        "LC_ALL=C top -bn1 | grep 'Cpu(s)' | head -n1",
+      );
+      final memoryOutput = await _runCommand(
+        client,
+        "LC_ALL=C free -b | awk '/Mem:/ {print \$2 " " \$3}'",
+      );
+      final cpuUsage = _parseCpuUsage(cpuOutput);
+      final (memoryUsagePercent, memoryTotalBytes, memoryUsedBytes) =
+          _parseMemoryUsage(memoryOutput);
+      return ServerMetrics(
+        cpuUsagePercent: cpuUsage,
+        memoryUsagePercent: memoryUsagePercent,
+        memoryTotalBytes: memoryTotalBytes,
+        memoryUsedBytes: memoryUsedBytes,
+      );
+    } finally {
+      client?.close();
+    }
+  }
+
+  /// Возвращает метрики выбранного systemd-сервиса.
+  Future<ServiceMetrics> fetchServiceMetrics(
+    ServerConfig server,
+    String service,
+  ) async {
+    SSHClient? client;
+    try {
+      client = await _connect(server);
+      final pidOutput = await _runCommand(
+        client,
+        "systemctl show '$service' --property=MainPID --value",
+      );
+      final pid = int.tryParse(pidOutput.trim());
+      if (pid == null || pid <= 0) {
+        return ServiceMetrics(pid: pid);
+      }
+      final statsOutput = await _runCommand(
+        client,
+        'LC_ALL=C ps -p $pid -o %cpu= -o %mem= -o rss=',
+      );
+      final (cpuUsage, memoryUsage, rssBytes) = _parseProcessStats(statsOutput);
+      return ServiceMetrics(
+        cpuUsagePercent: cpuUsage,
+        memoryUsagePercent: memoryUsage,
+        memoryRssBytes: rssBytes,
+        pid: pid,
+      );
+    } finally {
+      client?.close();
+    }
+  }
+
   /// Выполняет произвольную команду на сервере и возвращает её stdout.
   Future<String> _runCommand(SSHClient client, String command) async {
     final result = await client.execute(command);
     final output = await utf8.decoder.bind(result.stdout).join();
     result.close();
     return output;
+  }
+
+  double? _parseCpuUsage(String output) {
+    final normalized = output.replaceAll(',', '.');
+    final idleMatch =
+        RegExp(r'([0-9]+(?:\.[0-9]+)?)%id').firstMatch(normalized);
+    if (idleMatch != null) {
+      final idle = double.tryParse(idleMatch.group(1)!);
+      if (idle != null) {
+        final usage = 100 - idle;
+        return usage.clamp(0, 100);
+      }
+    }
+    final matches =
+        RegExp(r'([0-9]+(?:\.[0-9]+)?)%([a-z]+)').allMatches(normalized);
+    if (matches.isEmpty) {
+      return null;
+    }
+    double total = 0;
+    for (final match in matches) {
+      final label = match.group(2);
+      if (label == null || label == 'id') {
+        continue;
+      }
+      final value = double.tryParse(match.group(1)!);
+      if (value != null) {
+        total += value;
+      }
+    }
+    if (total <= 0) {
+      return null;
+    }
+    return total.clamp(0, 100);
+  }
+
+  (double?, int?, int?) _parseMemoryUsage(String output) {
+    final tokens = output.trim().split(RegExp(r'\s+'));
+    if (tokens.length < 2) {
+      return (null, null, null);
+    }
+    final total = int.tryParse(tokens[0]);
+    final used = int.tryParse(tokens[1]);
+    if (total == null || total <= 0 || used == null || used < 0) {
+      return (null, total, used);
+    }
+    final percent = (used / total) * 100;
+    return (percent.clamp(0, 100), total, used);
+  }
+
+  (double?, double?, int?) _parseProcessStats(String output) {
+    final tokens = output.trim().split(RegExp(r'\s+'));
+    if (tokens.isEmpty) {
+      return (null, null, null);
+    }
+    double? cpu;
+    double? mem;
+    int? rss;
+    if (tokens.isNotEmpty) {
+      cpu = double.tryParse(tokens[0].replaceAll(',', '.'));
+    }
+    if (tokens.length >= 2) {
+      mem = double.tryParse(tokens[1].replaceAll(',', '.'));
+    }
+    if (tokens.length >= 3) {
+      final rssValue = int.tryParse(tokens[2]);
+      if (rssValue != null) {
+        rss = rssValue * 1024; // rss reported в килобайтах
+      }
+    }
+    return (cpu, mem, rss);
   }
 
   /// Преобразует JSON-строку journalctl в доменную модель [LogEntry].
