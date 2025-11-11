@@ -88,6 +88,7 @@ void main() {
       );
 
       await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(statusBuildCounts[server1.id], 1);
       expect(statusBuildCounts[server2.id], 1);
@@ -103,4 +104,66 @@ void main() {
       expect(find.text('Онлайн'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'shows memory usage details when percentage is unavailable',
+    (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          serverStatusProvider.overrideWithProvider(
+            (server) =>
+                AutoDisposeFutureProvider<bool>((ref) async => true),
+          ),
+          serverLogRateProvider.overrideWithProvider(
+            (server) => AutoDisposeStreamProvider<double>((ref) {
+              return const Stream<double>.empty();
+            }),
+          ),
+          serverMetricsProvider.overrideWithProvider(
+            (server) => AutoDisposeStreamProvider<ServerMetrics>((ref) {
+              return Stream<ServerMetrics>.value(
+                const ServerMetrics(
+                  memoryTotalBytes: 8 * 1024 * 1024 * 1024,
+                  memoryUsedBytes: 4 * 1024 * 1024 * 1024,
+                ),
+              );
+            }),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final server = ServerConfig(
+        id: 'server-1',
+        name: 'Server 1',
+        host: '192.168.0.1',
+        username: 'user1',
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: ServerListTile(
+                server: server,
+                onOpenDetail: _noop,
+                onOpenEditor: _noop,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('RAM: 50.0% (4.0 ГБ / 8.0 ГБ)'),
+        findsOneWidget,
+      );
+    },
+  );
 }
+
+void _noop() {}
