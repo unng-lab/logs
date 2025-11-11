@@ -234,14 +234,54 @@ class ServerListTile extends ConsumerWidget {
 
   String? _formatServerMetrics(ServerMetrics metrics) {
     final cpu = metrics.cpuUsagePercent;
-    final memory = metrics.memoryUsagePercent;
-    if (cpu == null && memory == null) {
+    final memoryPercent = metrics.memoryUsagePercent;
+    final memoryTotal = metrics.memoryTotalBytes;
+    final memoryUsed = metrics.memoryUsedBytes;
+    if (cpu == null &&
+        memoryPercent == null &&
+        memoryTotal == null &&
+        memoryUsed == null) {
       return null;
     }
     final cpuText = cpu != null ? 'CPU: ${cpu.toStringAsFixed(1)}%' : 'CPU: —';
-    final memoryText =
-        memory != null ? 'RAM: ${memory.toStringAsFixed(1)}%' : 'RAM: —';
+
+    String memoryText;
+    if (memoryPercent != null) {
+      final percentText = memoryPercent.toStringAsFixed(1);
+      if (memoryTotal != null && memoryUsed != null && memoryTotal > 0) {
+        final usedText = _formatBytes(memoryUsed);
+        final totalText = _formatBytes(memoryTotal);
+        memoryText = 'RAM: $percentText% ($usedText / $totalText)';
+      } else {
+        memoryText = 'RAM: $percentText%';
+      }
+    } else if (memoryTotal != null && memoryUsed != null && memoryTotal > 0) {
+      final percent = (memoryUsed / memoryTotal) * 100;
+      final percentText = percent.clamp(0, 100).toStringAsFixed(1);
+      final usedText = _formatBytes(memoryUsed);
+      final totalText = _formatBytes(memoryTotal);
+      memoryText = 'RAM: $percentText% ($usedText / $totalText)';
+    } else if (memoryUsed != null) {
+      memoryText = 'RAM: ${_formatBytes(memoryUsed)}';
+    } else if (memoryTotal != null) {
+      memoryText = 'RAM: ${_formatBytes(memoryTotal)} всего';
+    } else {
+      memoryText = 'RAM: —';
+    }
+
     return '$cpuText · $memoryText';
+  }
+
+  String _formatBytes(int bytes) {
+    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    final precision = value >= 10 ? 0 : 1;
+    return '${value.toStringAsFixed(precision)} ${units[unitIndex]}';
   }
 }
 
