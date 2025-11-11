@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/metrics.dart';
 import '../models/server_config.dart';
 import '../repositories/server_repository.dart';
 import '../repositories/settings_repository.dart';
@@ -74,6 +75,90 @@ final serverLogRateProvider =
 
   // Периодически обновляем показатель каждые несколько секунд.
   timer = Timer.periodic(const Duration(seconds: 3), (_) {
+    fetch();
+  });
+
+  ref.onDispose(() {
+    timer?.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
+});
+
+/// Периодически опрашивает сервер для получения данных о загрузке CPU и памяти.
+final serverMetricsProvider =
+    AutoDisposeStreamProvider.family<ServerMetrics, ServerConfig>(
+  (ref, server) {
+    final service = ref.watch(sshServiceProvider);
+    final controller = StreamController<ServerMetrics>();
+    Timer? timer;
+    var isFetching = false;
+
+    Future<void> fetch() async {
+      if (isFetching || controller.isClosed) {
+        return;
+      }
+      isFetching = true;
+      try {
+        final metrics = await service.fetchServerMetrics(server);
+        if (!controller.isClosed) {
+          controller.add(metrics);
+        }
+      } catch (error, stackTrace) {
+        if (!controller.isClosed) {
+          controller.addError(error, stackTrace);
+        }
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    fetch();
+    timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      fetch();
+    });
+
+    ref.onDispose(() {
+      timer?.cancel();
+      controller.close();
+    });
+
+    return controller.stream;
+  },
+);
+
+/// Периодически опрашивает метрики выбранного сервиса.
+final serviceMetricsProvider =
+    AutoDisposeStreamProvider.family<ServiceMetrics, ServiceMetricsRequest>(
+        (ref, request) {
+  final service = ref.watch(sshServiceProvider);
+  final controller = StreamController<ServiceMetrics>();
+  Timer? timer;
+  var isFetching = false;
+
+  Future<void> fetch() async {
+    if (isFetching || controller.isClosed) {
+      return;
+    }
+    isFetching = true;
+    try {
+      final metrics =
+          await service.fetchServiceMetrics(request.server, request.service);
+      if (!controller.isClosed) {
+        controller.add(metrics);
+      }
+    } catch (error, stackTrace) {
+      if (!controller.isClosed) {
+        controller.addError(error, stackTrace);
+      }
+    } finally {
+      isFetching = false;
+    }
+  }
+
+  fetch();
+  timer = Timer.periodic(const Duration(seconds: 5), (_) {
     fetch();
   });
 

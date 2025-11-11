@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:logs/models/metrics.dart';
 import 'package:logs/models/server_config.dart';
 import 'package:logs/providers/app_providers.dart';
 import 'package:logs/screens/server_list_screen.dart';
@@ -46,6 +47,14 @@ void main() {
           serverLogRateProvider.overrideWithProvider(
             (server) => AutoDisposeStreamProvider<double>((ref) {
               return const Stream<double>.empty();
+            }),
+          ),
+          serverMetricsProvider.overrideWithProvider(
+            (server) => AutoDisposeStreamProvider<ServerMetrics>((ref) {
+              return Stream<ServerMetrics>.value(
+                const ServerMetrics(
+                    cpuUsagePercent: 12, memoryUsagePercent: 34),
+              );
             }),
           ),
         ],

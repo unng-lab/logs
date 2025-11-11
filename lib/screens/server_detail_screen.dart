@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/log_entry.dart';
+import '../models/metrics.dart';
 import '../models/server_config.dart';
 import '../providers/app_providers.dart';
 import '../providers/server_detail_controller.dart';
@@ -96,6 +97,7 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     });
     final controllerState = ref.watch(controllerProvider);
     final settingsAsync = ref.watch(settingsProvider);
+    final selectedService = controllerState.valueOrNull?.selectedService;
 
     final isServicesLoading =
         controllerState.valueOrNull?.isLoadingServices ?? false;
@@ -134,6 +136,13 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
                     style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 12),
                 _buildServiceDropdown(controllerState),
+                if (selectedService != null) ...[
+                  const SizedBox(height: 12),
+                  _ServiceMetricsInfo(
+                    server: server,
+                    service: selectedService,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 TextField(
                   decoration: const InputDecoration(
@@ -275,6 +284,101 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ServiceMetricsInfo extends ConsumerWidget {
+  const _ServiceMetricsInfo({
+    required this.server,
+    required this.service,
+  });
+
+  final ServerConfig server;
+  final String service;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metricsAsync = ref.watch(
+      serviceMetricsProvider(
+        ServiceMetricsRequest(server: server, service: service),
+      ),
+    );
+
+    return metricsAsync.when(
+      data: (metrics) {
+        final content = <Widget>[
+          Text(
+            _formatMetricsLine(metrics),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ];
+        final pid = metrics.pid;
+        if (pid != null && pid > 0) {
+          content.add(
+            Text(
+              'PID: $pid',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          );
+        }
+        return _MetricsCard(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: content,
+        ));
+      },
+      loading: () => _MetricsCard(
+        child: const Text('Загружаем метрики сервиса...'),
+      ),
+      error: (error, _) => _MetricsCard(
+        child: Text('Метрики недоступны: ${error.toString()}'),
+      ),
+    );
+  }
+
+  String _formatMetricsLine(ServiceMetrics metrics) {
+    final cpuText = metrics.cpuUsagePercent != null
+        ? 'CPU: ${metrics.cpuUsagePercent!.toStringAsFixed(1)}%'
+        : 'CPU: —';
+    final memoryPercent = metrics.memoryUsagePercent;
+    final memoryUsage = memoryPercent != null
+        ? 'RAM: ${memoryPercent.toStringAsFixed(1)}%'
+        : 'RAM: —';
+    final rss = metrics.memoryRssBytes;
+    final rssSuffix = rss != null ? ' (~${_formatBytes(rss)})' : '';
+    return '$cpuText · $memoryUsage$rssSuffix';
+  }
+
+  String _formatBytes(int bytes) {
+    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}';
+  }
+}
+
+class _MetricsCard extends StatelessWidget {
+  const _MetricsCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: child,
+      ),
     );
   }
 }
