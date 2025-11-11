@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show SocketException;
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:meta/meta.dart';
 
 import '../models/app_settings.dart';
 import '../models/log_entry.dart';
@@ -307,9 +308,10 @@ class SSHService {
   }
 
   double? _parseCpuUsage(String output) {
-    final normalized = output.replaceAll(',', '.');
+    final normalized = output.replaceAll(',', '.').toLowerCase();
     final idleMatch =
-        RegExp(r'([0-9]+(?:\.[0-9]+)?)%id').firstMatch(normalized);
+        RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*%?\s*(id|idle)')
+            .firstMatch(normalized);
     if (idleMatch != null) {
       final idle = double.tryParse(idleMatch.group(1)!);
       if (idle != null) {
@@ -317,15 +319,17 @@ class SSHService {
         return usage.clamp(0, 100);
       }
     }
-    final matches =
-        RegExp(r'([0-9]+(?:\.[0-9]+)?)%([a-z]+)').allMatches(normalized);
+
+    final matches = RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*%?\s*([a-z]+)')
+        .allMatches(normalized);
     if (matches.isEmpty) {
       return null;
     }
+
     double total = 0;
     for (final match in matches) {
       final label = match.group(2);
-      if (label == null || label == 'id') {
+      if (label == null || label == 'id' || label == 'idle') {
         continue;
       }
       final value = double.tryParse(match.group(1)!);
@@ -333,6 +337,7 @@ class SSHService {
         total += value;
       }
     }
+
     if (total <= 0) {
       return null;
     }
@@ -375,6 +380,9 @@ class SSHService {
     }
     return (cpu, mem, rss);
   }
+
+  @visibleForTesting
+  double? debugParseCpuUsage(String output) => _parseCpuUsage(output);
 
   /// Преобразует JSON-строку journalctl в доменную модель [LogEntry].
   LogEntry? _mapJsonToEntry(
