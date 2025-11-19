@@ -16,6 +16,15 @@ Flutter application that connects to remote Linux servers over SSH and streams t
 2. Run `flutter pub get` to install dependencies.
 3. Launch the application with `flutter run`.
 
+## Run and Build Commands
+
+- Debug run on a connected device or emulator: `flutter run -d <device_id>`.
+- Profile run to inspect performance: `flutter run --profile -d <device_id>`.
+- Release build for Android APK: `flutter build apk --release`.
+- Release build for Android App Bundle: `flutter build appbundle --release`.
+- Release build for Windows desktop: `flutter build windows --release`.
+- Release build for the web (release mode): `flutter build web --release`.
+
 ## Architecture
 
 - **Riverpod** is used for state management.
