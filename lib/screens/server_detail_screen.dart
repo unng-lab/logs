@@ -98,6 +98,8 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
     final controllerState = ref.watch(controllerProvider);
     final settingsAsync = ref.watch(settingsProvider);
     final selectedService = controllerState.valueOrNull?.selectedService;
+    final activeServiceAction =
+        controllerState.valueOrNull?.activeServiceAction;
 
     final isServicesLoading =
         controllerState.valueOrNull?.isLoadingServices ?? false;
@@ -141,6 +143,11 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
                   _ServiceMetricsInfo(
                     server: server,
                     service: selectedService,
+                  ),
+                  const SizedBox(height: 8),
+                  _ServiceActions(
+                    server: server,
+                    activeAction: activeServiceAction,
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -284,6 +291,105 @@ class _ServerDetailScreenState extends ConsumerState<ServerDetailScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ServiceActions extends ConsumerWidget {
+  const _ServiceActions({
+    required this.server,
+    required this.activeAction,
+  });
+
+  final ServerConfig server;
+  final ServiceAction? activeAction;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isBusy = activeAction != null;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _buildActionButton(
+            context: context,
+            label: 'Статус',
+            busyLabel: 'Запрашиваем...',
+            icon: Icons.info_outline,
+            action: ServiceAction.status,
+            isBusy: isBusy,
+            activeAction: activeAction,
+            onPressed: () => ref
+                .read(serverDetailControllerProvider(server).notifier)
+                .fetchSelectedServiceStatus(),
+          ),
+          _buildActionButton(
+            context: context,
+            label: 'Запустить',
+            busyLabel: 'Запускаем...',
+            icon: Icons.play_arrow,
+            action: ServiceAction.start,
+            isBusy: isBusy,
+            activeAction: activeAction,
+            onPressed: () => ref
+                .read(serverDetailControllerProvider(server).notifier)
+                .startSelectedService(),
+          ),
+          _buildActionButton(
+            context: context,
+            label: 'Перезапустить',
+            busyLabel: 'Перезапускаем...',
+            icon: Icons.restart_alt,
+            action: ServiceAction.restart,
+            isBusy: isBusy,
+            activeAction: activeAction,
+            onPressed: () => ref
+                .read(serverDetailControllerProvider(server).notifier)
+                .restartSelectedService(),
+          ),
+          _buildActionButton(
+            context: context,
+            label: 'Остановить',
+            busyLabel: 'Останавливаем...',
+            icon: Icons.stop_circle_outlined,
+            action: ServiceAction.stop,
+            isBusy: isBusy,
+            activeAction: activeAction,
+            onPressed: () => ref
+                .read(serverDetailControllerProvider(server).notifier)
+                .stopSelectedService(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required String label,
+    required String busyLabel,
+    required IconData icon,
+    required ServiceAction action,
+    required bool isBusy,
+    required ServiceAction? activeAction,
+    required VoidCallback onPressed,
+  }) {
+    final isActionActive = activeAction == action;
+    final buttonLabel = isActionActive ? busyLabel : label;
+    final buttonIcon = isActionActive
+        ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Icon(icon);
+
+    return FilledButton.icon(
+      onPressed: isBusy ? null : onPressed,
+      icon: buttonIcon,
+      label: Text(buttonLabel),
     );
   }
 }

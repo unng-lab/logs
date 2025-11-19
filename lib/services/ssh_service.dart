@@ -125,6 +125,63 @@ class SSHService {
     }
   }
 
+  /// Перезапускает выбранный systemd-сервис на удалённом сервере.
+  Future<void> restartService(ServerConfig server, String service) async {
+    final client = await _connect(server);
+    try {
+      final sanitizedService = service.replaceAll("'", "'\\''");
+      await _runCommand(
+        client,
+        "sudo systemctl restart '$sanitizedService'",
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Запускает выбранный systemd-сервис на удалённом сервере.
+  Future<void> startService(ServerConfig server, String service) async {
+    final client = await _connect(server);
+    try {
+      final sanitizedService = service.replaceAll("'", "'\\''");
+      await _runCommand(
+        client,
+        "sudo systemctl start '$sanitizedService'",
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Останавливает выбранный systemd-сервис на удалённом сервере.
+  Future<void> stopService(ServerConfig server, String service) async {
+    final client = await _connect(server);
+    try {
+      final sanitizedService = service.replaceAll("'", "'\\''");
+      await _runCommand(
+        client,
+        "sudo systemctl stop '$sanitizedService'",
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Возвращает статус выбранного systemd-сервиса.
+  Future<String> fetchServiceStatus(ServerConfig server, String service) async {
+    final client = await _connect(server);
+    try {
+      final sanitizedService = service.replaceAll("'", "'\\''");
+      final result = await _runCommand(
+        client,
+        "systemctl is-active '$sanitizedService'",
+      );
+      return result.trim().isEmpty ? 'unknown' : result.trim();
+    } finally {
+      client.close();
+    }
+  }
+
   /// Создаёт поток логов journalctl для выбранных сервисов.
   Stream<LogEntry> streamLogs(
     ServerConfig server,
@@ -309,9 +366,8 @@ class SSHService {
 
   double? _parseCpuUsage(String output) {
     final normalized = output.replaceAll(',', '.').toLowerCase();
-    final idleMatch =
-        RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*%?\s*(id|idle)')
-            .firstMatch(normalized);
+    final idleMatch = RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*%?\s*(id|idle)')
+        .firstMatch(normalized);
     if (idleMatch != null) {
       final idle = double.tryParse(idleMatch.group(1)!);
       if (idle != null) {
@@ -320,8 +376,8 @@ class SSHService {
       }
     }
 
-    final matches = RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*%?\s*([a-z]+)')
-        .allMatches(normalized);
+    final matches =
+        RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*%?\s*([a-z]+)').allMatches(normalized);
     if (matches.isEmpty) {
       return null;
     }
