@@ -6,6 +6,7 @@ import '../models/log_entry.dart';
 import '../models/server_config.dart';
 import 'app_providers.dart';
 import 'server_logs_provider.dart';
+import '../services/ssh_service.dart';
 
 /// Оповещение, которое контроллер может отправить во вью.
 class ServerDetailAlert {
@@ -30,6 +31,7 @@ class ServerDetailState {
     this.logs = const <LogEntry>[],
     this.isStreaming = false,
     this.isLoadingServices = true,
+    this.activeServiceAction,
     this.alert,
   });
 
@@ -38,6 +40,7 @@ class ServerDetailState {
   final List<LogEntry> logs;
   final bool isStreaming;
   final bool isLoadingServices;
+  final ServiceAction? activeServiceAction;
   final ServerDetailAlert? alert;
 
   ServerDetailState copyWith({
@@ -46,18 +49,23 @@ class ServerDetailState {
     List<LogEntry>? logs,
     bool? isStreaming,
     bool? isLoadingServices,
+    Object? activeServiceAction = _sentinel,
     ServerDetailAlert? alert,
     bool clearAlert = false,
   }) {
     final resolvedSelectedService = selectedService == _sentinel
         ? this.selectedService
         : selectedService as String?;
+    final resolvedActiveServiceAction = activeServiceAction == _sentinel
+        ? this.activeServiceAction
+        : activeServiceAction as ServiceAction?;
     return ServerDetailState(
       services: services ?? this.services,
       selectedService: resolvedSelectedService,
       logs: logs ?? this.logs,
       isStreaming: isStreaming ?? this.isStreaming,
       isLoadingServices: isLoadingServices ?? this.isLoadingServices,
+      activeServiceAction: resolvedActiveServiceAction,
       alert: clearAlert ? null : (alert ?? this.alert),
     );
   }
@@ -154,6 +162,92 @@ class ServerDetailController
     await ref.read(serverLogsProvider(_server).notifier).restart();
   }
 
+  Future<void> restartSelectedService() async {
+    await _runServiceAction(
+      action: ServiceAction.restart,
+      onPerform: (sshService, service) async {
+        await sshService.restartService(_server, service);
+        await ref.read(serverLogsProvider(_server).notifier).restart();
+        return 'Сервис $service перезапущен';
+      },
+    );
+  }
+
+  Future<void> startSelectedService() async {
+    await _runServiceAction(
+      action: ServiceAction.start,
+      onPerform: (sshService, service) async {
+        await sshService.startService(_server, service);
+        await ref.read(serverLogsProvider(_server).notifier).restart();
+        return 'Сервис $service запущен';
+      },
+    );
+  }
+
+  Future<void> stopSelectedService() async {
+    await _runServiceAction(
+      action: ServiceAction.stop,
+      onPerform: (sshService, service) async {
+        await sshService.stopService(_server, service);
+        await ref.read(serverLogsProvider(_server).notifier).restart();
+        return 'Сервис $service остановлен';
+      },
+    );
+  }
+
+  Future<void> fetchSelectedServiceStatus() async {
+    await _runServiceAction(
+      action: ServiceAction.status,
+      onPerform: (sshService, service) async {
+        final status = await sshService.fetchServiceStatus(_server, service);
+        return 'Статус сервиса $service: $status';
+      },
+    );
+  }
+
+  Future<void> _runServiceAction({
+    required ServiceAction action,
+    required Future<String> Function(SSHService sshService, String service)
+        onPerform,
+  }) async {
+    final current = state.valueOrNull;
+    final service = current?.selectedService;
+    if (current == null || service == null) {
+      return;
+    }
+
+    state = AsyncValue.data(
+      current.copyWith(
+        activeServiceAction: action,
+        clearAlert: true,
+      ),
+    );
+
+    try {
+      final sshService = ref.read(sshServiceProvider);
+      final message = await onPerform(sshService, service);
+
+      final latest = state.valueOrNull ?? current;
+      state = AsyncValue.data(
+        latest.copyWith(
+          activeServiceAction: null,
+          alert: _createAlert(message),
+        ),
+      );
+    } catch (error) {
+      final latest = state.valueOrNull ?? current;
+      state = AsyncValue.data(
+        latest.copyWith(
+          activeServiceAction: null,
+          alert: _createAlert(
+            'Не удалось выполнить действие: $error',
+            isError: true,
+          ),
+        ),
+      );
+    }
+  }
+
   String? _resolveSelectedService(List<String> services, String? preferred) {
     if (preferred == null) {
       return null;
@@ -207,3 +301,5 @@ class ServerDetailController
     state = AsyncValue.data(current.copyWith(clearAlert: true));
   }
 }
+
+enum ServiceAction { status, start, restart, stop }
